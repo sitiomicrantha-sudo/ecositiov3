@@ -35,6 +35,32 @@ export const categoryEnum = pgEnum("category", [
   "insumo",
 ]);
 
+// Status de plantio
+export const plantingStatusEnum = pgEnum("planting_status", [
+  "active",
+  "harvested",
+  "permanent",
+]);
+
+// Categoria de atividade
+export const activityCategoryEnum = pgEnum("activity_category", [
+  "horta",
+  "aves",
+  "bioinsumos",
+  "geral",
+]);
+
+// Tipo de atividade
+export const activityTypeEnum = pgEnum("activity_type", [
+  "plantio",
+  "colheita",
+  "coleta_ovos",
+  "limpeza_aviario",
+  "coleta_esterco",
+  "aplicacao_insumo",
+  "rocagem",
+]);
+
 // ============================================================
 // MÓDULO 1: ESTRUTURA TOPOLÓGICA
 // Hierarquia: Propriedade > Gleba > Talhão > Canteiro
@@ -119,6 +145,38 @@ export const inventoryTransactions = pgTable("inventory_transactions", {
 });
 
 // ============================================================
+// MÓDULO 4: CADerno DE CAMPO E REGISTRO DE MANEJO
+// ============================================================
+
+// Tabela: Cultivos/Plantios (ciclo de vida no canteiro)
+export const plantings = pgTable("plantings", {
+  id: serial("id").primaryKey(),
+  bedId: integer("bed_id")
+    .notNull()
+    .references(() => beds.id, { onDelete: "cascade" }),
+  itemId: integer("item_id")
+    .notNull()
+    .references(() => inventoryItems.id, { onDelete: "cascade" }),
+  status: plantingStatusEnum("status").notNull().default("active"),
+  plantedAt: timestamp("planted_at").defaultNow().notNull(),
+  harvestedAt: timestamp("harvested_at"),
+});
+
+// Tabela: Atividades/Diário Unificado
+export const fieldActivities = pgTable("field_activities", {
+  id: serial("id").primaryKey(),
+  date: timestamp("date").defaultNow().notNull(),
+  category: activityCategoryEnum("category").notNull(),
+  activityType: activityTypeEnum("activity_type").notNull(),
+  bedId: integer("bed_id").references(() => beds.id, { onDelete: "set null" }),
+  itemId: integer("item_id").references(() => inventoryItems.id, {
+    onDelete: "set null",
+  }),
+  quantity: decimal("quantity", { precision: 10, scale: 2 }),
+  notes: text("notes"),
+});
+
+// ============================================================
 // RELACIONAMENTOS (Drizzle Relations)
 // ============================================================
 
@@ -145,19 +203,23 @@ export const fieldsRelations = relations(fields, ({ one, many }) => ({
   beds: many(beds),
 }));
 
-// Canteiro pertence a um talhão
-export const bedsRelations = relations(beds, ({ one }) => ({
+// Canteiro pertence a um talhão e tem muitos plantios e atividades
+export const bedsRelations = relations(beds, ({ one, many }) => ({
   field: one(fields, {
     fields: [beds.fieldId],
     references: [fields.id],
   }),
+  plantings: many(plantings),
+  fieldActivities: many(fieldActivities),
 }));
 
-// Item de estoque tem muitas transações
+// Item de estoque tem muitas transações, plantios e atividades
 export const inventoryItemsRelations = relations(
   inventoryItems,
   ({ many }) => ({
     transactions: many(inventoryTransactions),
+    plantings: many(plantings),
+    fieldActivities: many(fieldActivities),
   })
 );
 
@@ -167,6 +229,33 @@ export const inventoryTransactionsRelations = relations(
   ({ one }) => ({
     item: one(inventoryItems, {
       fields: [inventoryTransactions.itemId],
+      references: [inventoryItems.id],
+    }),
+  })
+);
+
+// Plantio pertence a um canteiro e a um item
+export const plantingsRelations = relations(plantings, ({ one }) => ({
+  bed: one(beds, {
+    fields: [plantings.bedId],
+    references: [beds.id],
+  }),
+  item: one(inventoryItems, {
+    fields: [plantings.itemId],
+    references: [inventoryItems.id],
+  }),
+}));
+
+// Atividade pertence a um canteiro e a um item (opcionais)
+export const fieldActivitiesRelations = relations(
+  fieldActivities,
+  ({ one }) => ({
+    bed: one(beds, {
+      fields: [fieldActivities.bedId],
+      references: [beds.id],
+    }),
+    item: one(inventoryItems, {
+      fields: [fieldActivities.itemId],
       references: [inventoryItems.id],
     }),
   })

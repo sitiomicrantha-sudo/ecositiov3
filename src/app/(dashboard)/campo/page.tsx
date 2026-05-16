@@ -1,0 +1,127 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { BedsOverview } from "@/components/campo/beds-overview";
+import { ActivityButtons } from "@/components/campo/activity-buttons";
+import { ActivityForm } from "@/components/campo/activity-form";
+import { ActivityTimeline } from "@/components/campo/activity-timeline";
+import {
+  getBedsWithPlantingStatus,
+  getFieldActivities,
+} from "@/actions/field-activities";
+
+interface BedStatus {
+  id: number;
+  name: string;
+  hasActivePlanting: boolean;
+  plantingStatus: string | null;
+  plantingItemName: string | null;
+}
+
+interface Activity {
+  id: number;
+  date: Date;
+  category: "horta" | "aves" | "bioinsumos" | "geral";
+  activityType:
+    | "plantio"
+    | "colheita"
+    | "coleta_ovos"
+    | "limpeza_aviario"
+    | "coleta_esterco"
+    | "aplicacao_insumo"
+    | "rocagem";
+  bedId: number | null;
+  itemId: number | null;
+  quantity: string | null;
+  notes: string | null;
+  bedName: string | null;
+  itemName: string | null;
+}
+
+export default function CampoPage() {
+  const [beds, setBeds] = useState<BedStatus[]>([]);
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedActivity, setSelectedActivity] = useState<string | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+
+    const [bedsResult, activitiesResult] = await Promise.all([
+      getBedsWithPlantingStatus(),
+      getFieldActivities(),
+    ]);
+
+    if (bedsResult.success) {
+      setBeds(bedsResult.data);
+    }
+
+    if (activitiesResult.success) {
+      setActivities(activitiesResult.data);
+    }
+
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  function handleSelectActivity(activityType: string) {
+    setSelectedActivity(activityType);
+    setFormOpen(true);
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold tracking-tight text-gray-900">
+          Caderno de Campo
+        </h2>
+        <p className="mt-1 text-sm text-gray-500">
+          Registre plantios, colheitas, manejo das aves e acompanhe o histórico do sítio.
+        </p>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-16">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-600 border-t-transparent" />
+        </div>
+      ) : (
+        <>
+          <BedsOverview beds={beds} />
+
+          <Tabs defaultValue="register" className="w-full">
+            <TabsList className="w-full sm:w-fit">
+              <TabsTrigger value="register" className="flex-1 sm:flex-none">
+                Registrar Atividade
+              </TabsTrigger>
+              <TabsTrigger value="diary" className="flex-1 sm:flex-none">
+                Diário de Bordo
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="register" className="mt-6">
+              <div className="rounded-xl border bg-white p-4 shadow-sm sm:p-6">
+                <ActivityButtons onSelectActivity={handleSelectActivity} />
+              </div>
+            </TabsContent>
+
+            <TabsContent value="diary" className="mt-6">
+              <ActivityTimeline activities={activities} />
+            </TabsContent>
+          </Tabs>
+        </>
+      )}
+
+      <ActivityForm
+        activityType={selectedActivity}
+        open={formOpen}
+        onOpenChange={setFormOpen}
+        onSuccess={fetchData}
+      />
+    </div>
+  );
+}
