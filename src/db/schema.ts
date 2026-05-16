@@ -86,6 +86,28 @@ export const individualStatusEnum = pgEnum("individual_status", [
   "morto",
 ]);
 
+// Status de pagamento
+export const paymentStatusEnum = pgEnum("payment_status", [
+  "pago",
+  "pendente",
+]);
+
+// Tipo de transação financeira
+export const financialTransactionTypeEnum = pgEnum("financial_tx_type", [
+  "revenue",
+  "expense",
+]);
+
+// Categoria financeira
+export const financialCategoryEnum = pgEnum("financial_category", [
+  "venda_producao",
+  "insumos_aves",
+  "insumos_jadm",
+  "infraestrutura",
+  "logistica",
+  "outros",
+]);
+
 // ============================================================
 // MÓDULO 1: ESTRUTURA TOPOLÓGICA
 // Hierarquia: Propriedade > Gleba > Talhão > Canteiro
@@ -253,6 +275,37 @@ export const poultryIndividuals = pgTable("poultry_individuals", {
 _pIndRef = poultryIndividuals;
 
 // ============================================================
+// MÓDULO 6: FINANCEIRO E VENDAS
+// ============================================================
+
+// Tabela: Vendas de Produção
+export const sales = pgTable("sales", {
+  id: serial("id").primaryKey(),
+  date: timestamp("date").defaultNow().notNull(),
+  customerName: varchar("customer_name", { length: 255 }),
+  itemId: integer("item_id")
+    .notNull()
+    .references(() => inventoryItems.id, { onDelete: "cascade" }),
+  quantity: decimal("quantity", { precision: 10, scale: 2 }).notNull(),
+  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
+  totalPrice: decimal("total_price", { precision: 10, scale: 2 }).notNull(),
+  paymentStatus: paymentStatusEnum("payment_status").notNull().default("pendente"),
+});
+
+// Tabela: Transações Financeiras (Fluxo de Caixa)
+export const financialTransactions = pgTable("financial_transactions", {
+  id: serial("id").primaryKey(),
+  date: timestamp("date").defaultNow().notNull(),
+  type: financialTransactionTypeEnum("type").notNull(),
+  category: financialCategoryEnum("category").notNull(),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  description: varchar("description", { length: 255 }).notNull(),
+  saleId: integer("sale_id").references(() => sales.id, {
+    onDelete: "set null",
+  }),
+});
+
+// ============================================================
 // RELACIONAMENTOS (Drizzle Relations)
 // ============================================================
 
@@ -289,13 +342,14 @@ export const bedsRelations = relations(beds, ({ one, many }) => ({
   fieldActivities: many(fieldActivities),
 }));
 
-// Item de estoque tem muitas transações, plantios e atividades
+// Item de estoque tem muitas transações, plantios, atividades e vendas
 export const inventoryItemsRelations = relations(
   inventoryItems,
   ({ many }) => ({
     transactions: many(inventoryTransactions),
     plantings: many(plantings),
     fieldActivities: many(fieldActivities),
+    sales: many(sales),
   })
 );
 
@@ -368,6 +422,26 @@ export const poultryIndividualsRelations = relations(
     mother: one(poultryIndividuals, {
       fields: [poultryIndividuals.motherId],
       references: [poultryIndividuals.id],
+    }),
+  })
+);
+
+// Venda pertence a um item e tem transações financeiras vinculadas
+export const salesRelations = relations(sales, ({ one, many }) => ({
+  item: one(inventoryItems, {
+    fields: [sales.itemId],
+    references: [inventoryItems.id],
+  }),
+  financialTransactions: many(financialTransactions),
+}));
+
+// Transação financeira pertence a uma venda (opcional)
+export const financialTransactionsRelations = relations(
+  financialTransactions,
+  ({ one }) => ({
+    sale: one(sales, {
+      fields: [financialTransactions.saleId],
+      references: [sales.id],
     }),
   })
 );

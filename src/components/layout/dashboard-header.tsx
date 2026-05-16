@@ -11,6 +11,7 @@ const pageTitles: Record<string, string> = {
   "/campo": "Caderno de Campo",
   "/avicultura": "Avicultura & Genética",
   "/estoque": "Estoque / Germoplasma",
+  "/financeiro": "Financeiro & Vendas",
   "/inventario": "Inventário",
   "/clientes": "Clientes",
   "/configuracoes": "Configurações",

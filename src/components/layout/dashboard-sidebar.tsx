@@ -28,6 +28,7 @@ import {
   ChevronDown,
   Home,
   Leaf,
+  Wallet,
 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 
@@ -39,6 +40,7 @@ const operationsItems = [
 
 const salesItems = [
   { title: "Estoque / Germoplasma", href: "/estoque", icon: Leaf },
+  { title: "Financeiro", href: "/financeiro", icon: Wallet },
   { title: "Inventário", href: "/inventario", icon: Package },
   { title: "Clientes", href: "/clientes", icon: DollarSign },
 ];
