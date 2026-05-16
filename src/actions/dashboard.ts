@@ -9,7 +9,7 @@ import {
   fieldActivities,
   inventoryItems,
   inventoryTransactions,
-  sales,
+  orders,
 } from "@/db/schema";
 import { eq, or, desc, sql, and, gte, lte } from "drizzle-orm";
 import type { ActionResult } from "./topology";
@@ -210,36 +210,36 @@ export async function getLowStockAlerts(): Promise<
   }
 }
 
-export async function getPendingSales(): Promise<
+export async function getPendingOrders(): Promise<
   ActionResult<
     {
       id: number;
       date: Date;
       customerName: string | null;
-      totalPrice: string;
-      itemName: string | null;
+      total: string;
+      itemCount: number;
     }[]
   >
 > {
   try {
-    const pendingSales = await db.query.sales.findMany({
-      where: eq(sales.paymentStatus, "pendente"),
-      orderBy: [desc(sales.date)],
+    const pendingOrders = await db.query.orders.findMany({
+      where: eq(orders.paymentStatus, "pendente"),
+      orderBy: [desc(orders.date)],
       with: {
-        item: true,
+        items: true,
       },
     });
 
-    const enriched = pendingSales.map((s) => ({
-      id: s.id,
-      date: s.date,
-      customerName: s.customerName || null,
-      totalPrice: s.totalPrice,
-      itemName: (s.item as { name: string } | null)?.name || null,
+    const enriched = pendingOrders.map((o) => ({
+      id: o.id,
+      date: o.date,
+      customerName: o.customerName || null,
+      total: o.total,
+      itemCount: (o.items as any[]).length,
     }));
 
     return { success: true, data: enriched };
   } catch {
-    return { success: false, error: "Erro ao buscar vendas pendentes" };
+    return { success: false, error: "Erro ao buscar pedidos pendentes" };
   }
 }

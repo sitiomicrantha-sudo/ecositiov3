@@ -6,12 +6,12 @@ import { SummaryCards } from "@/components/finance/summary-cards";
 import { TransactionsTable } from "@/components/finance/transactions-table";
 import { ExpenseForm } from "@/components/finance/expense-form";
 import { SaleForm } from "@/components/finance/sale-form";
-import { SalesList } from "@/components/finance/sales-list";
+import { OrdersList } from "@/components/finance/sales-list";
 import {
   getFinancialSummary,
   getTransactionsList,
-  getSalesList,
-  confirmPayment,
+  getOrdersList,
+  confirmOrderPayment,
 } from "@/actions/finance";
 import { toast } from "sonner";
 
@@ -22,21 +22,21 @@ interface Transaction {
   category: string;
   amount: string;
   description: string;
-  saleId: number | null;
-  saleCustomerName: string | null;
-  saleItemName: string | null;
+  orderId: number | null;
+  orderCustomerName: string | null;
 }
 
-interface Sale {
+interface Order {
   id: number;
   date: Date;
   customerName: string | null;
-  itemId: number;
-  quantity: string;
-  unitPrice: string;
-  totalPrice: string;
-  paymentStatus: "pago" | "pendente";
-  itemName: string | null;
+  type: string;
+  paymentMethod: string;
+  paymentStatus: string;
+  subtotal: string;
+  total: string;
+  deliveryFee: string;
+  items: { itemName: string; quantity: string; totalPrice: string }[];
 }
 
 export default function FinanceiroPage() {
@@ -44,16 +44,16 @@ export default function FinanceiroPage() {
   const [monthRevenue, setMonthRevenue] = useState("0");
   const [monthExpense, setMonthExpense] = useState("0");
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [sales, setSales] = useState<Sale[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
 
-    const [summaryResult, transactionsResult, salesResult] = await Promise.all([
+    const [summaryResult, transactionsResult, ordersResult] = await Promise.all([
       getFinancialSummary(),
       getTransactionsList(),
-      getSalesList(),
+      getOrdersList(),
     ]);
 
     if (summaryResult.success) {
@@ -66,8 +66,8 @@ export default function FinanceiroPage() {
       setTransactions(transactionsResult.data);
     }
 
-    if (salesResult.success) {
-      setSales(salesResult.data);
+    if (ordersResult.success) {
+      setOrders(ordersResult.data);
     }
 
     setLoading(false);
@@ -77,8 +77,8 @@ export default function FinanceiroPage() {
     fetchData();
   }, [fetchData]);
 
-  async function handleConfirmPayment(saleId: number) {
-    const result = await confirmPayment(saleId);
+  async function handleConfirmPayment(orderId: number) {
+    const result = await confirmOrderPayment(orderId);
 
     if (result.success) {
       toast.success("Pagamento confirmado! Estoque e caixa atualizados.");
@@ -93,10 +93,10 @@ export default function FinanceiroPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-2xl font-bold tracking-tight text-gray-900">
-            Financeiro & Vendas
+            Financeiro & Pedidos
           </h2>
           <p className="mt-1 text-sm text-gray-500">
-            Controle de fluxo de caixa, vendas e faturamento do sítio.
+            Controle de fluxo de caixa, pedidos e faturamento do sítio.
           </p>
         </div>
       </div>
@@ -119,7 +119,7 @@ export default function FinanceiroPage() {
                 Fluxo de Caixa
               </TabsTrigger>
               <TabsTrigger value="sales" className="flex-1 sm:flex-none">
-                Vendas / Pedidos
+                Pedidos / Vendas
               </TabsTrigger>
             </TabsList>
 
@@ -134,8 +134,8 @@ export default function FinanceiroPage() {
               <div className="mb-4">
                 <SaleForm onSuccess={fetchData} />
               </div>
-              <SalesList
-                sales={sales}
+              <OrdersList
+                orders={orders}
                 onConfirmPayment={handleConfirmPayment}
               />
             </TabsContent>

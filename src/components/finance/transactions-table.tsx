@@ -17,9 +17,8 @@ interface Transaction {
   category: string;
   amount: string;
   description: string;
-  saleId: number | null;
-  saleCustomerName: string | null;
-  saleItemName: string | null;
+  orderId: number | null;
+  orderCustomerName: string | null;
 }
 
 interface TransactionsTableProps {

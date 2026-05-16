@@ -28,6 +28,7 @@ import {
   Home,
   Leaf,
   Wallet,
+  ShoppingCart,
 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 
@@ -38,6 +39,7 @@ const operationsItems = [
 ];
 
 const salesItems = [
+  { title: "PDV / Caixa", href: "/pdv", icon: ShoppingCart },
   { title: "Estoque / Germoplasma", href: "/estoque", icon: Leaf },
   { title: "Financeiro", href: "/financeiro", icon: Wallet },
   { title: "Clientes", href: "/clientes", icon: DollarSign },

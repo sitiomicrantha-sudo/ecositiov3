@@ -15,19 +15,15 @@ import { relations } from "drizzle-orm";
 // ENUMS
 // ============================================================
 
-// Unidade de medida para itens de estoque
 export const unitEnum = pgEnum("unit", ["kg", "unit", "liters"]);
 
-// Tipo de item: insumo (input) ou produto final (final_product)
 export const itemTypeEnum = pgEnum("item_type", ["input", "final_product"]);
 
-// Tipo de transação: entrada (entry) ou saída (exit)
 export const transactionTypeEnum = pgEnum("transaction_type", [
   "entry",
   "exit",
 ]);
 
-// Categoria de germoplasma/insumo
 export const categoryEnum = pgEnum("category", [
   "muda",
   "estaca",
@@ -35,14 +31,12 @@ export const categoryEnum = pgEnum("category", [
   "insumo",
 ]);
 
-// Status de plantio
 export const plantingStatusEnum = pgEnum("planting_status", [
   "active",
   "harvested",
   "permanent",
 ]);
 
-// Categoria de atividade
 export const activityCategoryEnum = pgEnum("activity_category", [
   "horta",
   "aves",
@@ -50,7 +44,6 @@ export const activityCategoryEnum = pgEnum("activity_category", [
   "geral",
 ]);
 
-// Tipo de atividade
 export const activityTypeEnum = pgEnum("activity_type", [
   "plantio",
   "colheita",
@@ -64,7 +57,6 @@ export const activityTypeEnum = pgEnum("activity_type", [
   "movimentacao_piquete",
 ]);
 
-// Propósito do lote de aves
 export const poultryPurposeEnum = pgEnum("poultry_purpose", [
   "postura",
   "corte",
@@ -72,36 +64,39 @@ export const poultryPurposeEnum = pgEnum("poultry_purpose", [
   "matriz_genetica",
 ]);
 
-// Status do lote
 export const batchStatusEnum = pgEnum("batch_status", [
   "active",
   "retired",
   "sold",
 ]);
 
-// Gênero do indivíduo
 export const genderEnum = pgEnum("gender", ["macho", "femea"]);
 
-// Status do indivíduo
 export const individualStatusEnum = pgEnum("individual_status", [
   "ativo",
   "descartado",
   "morto",
 ]);
 
-// Status de pagamento
 export const paymentStatusEnum = pgEnum("payment_status", [
   "pago",
   "pendente",
 ]);
 
-// Tipo de transação financeira
+export const orderTypeEnum = pgEnum("order_type", ["balcao", "delivery"]);
+
+export const paymentMethodEnum = pgEnum("payment_method", [
+  "pix",
+  "dinheiro",
+  "cartao",
+  "pendente",
+]);
+
 export const financialTransactionTypeEnum = pgEnum("financial_tx_type", [
   "revenue",
   "expense",
 ]);
 
-// Categoria financeira
 export const financialCategoryEnum = pgEnum("financial_category", [
   "venda_producao",
   "insumos_aves",
@@ -111,13 +106,11 @@ export const financialCategoryEnum = pgEnum("financial_category", [
   "outros",
 ]);
 
-// Tipo de cliente
 export const customerTypeEnum = pgEnum("customer_type", [
   "b2c",
   "b2b",
 ]);
 
-// Status do cliente
 export const customerStatusEnum = pgEnum("customer_status", [
   "active",
   "inactive",
@@ -125,10 +118,8 @@ export const customerStatusEnum = pgEnum("customer_status", [
 
 // ============================================================
 // MÓDULO 1: ESTRUTURA TOPOLÓGICA
-// Hierarquia: Propriedade > Gleba > Talhão > Canteiro
 // ============================================================
 
-// Tabela: Propriedades (raiz da hierarquia)
 export const properties = pgTable("properties", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
@@ -138,7 +129,6 @@ export const properties = pgTable("properties", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// Tabela: Glebas (vinculadas à propriedade)
 export const glebes = pgTable("glebes", {
   id: serial("id").primaryKey(),
   propertyId: integer("property_id")
@@ -151,7 +141,6 @@ export const glebes = pgTable("glebes", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// Tabela: Talhões (vinculados à gleba)
 export const fields = pgTable("fields", {
   id: serial("id").primaryKey(),
   glebeId: integer("glebe_id")
@@ -164,7 +153,6 @@ export const fields = pgTable("fields", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// Tabela: Canteiros (vinculados ao talhão - unidade mínima de controle)
 export const beds = pgTable("beds", {
   id: serial("id").primaryKey(),
   fieldId: integer("field_id")
@@ -181,7 +169,6 @@ export const beds = pgTable("beds", {
 // MÓDULO 3: ESTOQUE BÁSICO
 // ============================================================
 
-// Tabela: Itens de estoque (insumos e produtos finais)
 export const inventoryItems = pgTable("inventory_items", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
@@ -189,11 +176,11 @@ export const inventoryItems = pgTable("inventory_items", {
   type: itemTypeEnum("type").notNull(),
   category: categoryEnum("category").notNull().default("insumo"),
   location: varchar("location", { length: 255 }),
+  basePrice: decimal("base_price", { precision: 10, scale: 2 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// Tabela: Transações de estoque (entradas e saídas)
 export const inventoryTransactions = pgTable("inventory_transactions", {
   id: serial("id").primaryKey(),
   itemId: integer("item_id")
@@ -207,10 +194,9 @@ export const inventoryTransactions = pgTable("inventory_transactions", {
 });
 
 // ============================================================
-// MÓDULO 4: CADerno DE CAMPO E REGISTRO DE MANEJO
+// MÓDULO 4: CADERNO DE CAMPO E REGISTRO DE MANEJO
 // ============================================================
 
-// Tabela: Cultivos/Plantios (ciclo de vida no canteiro)
 export const plantings = pgTable("plantings", {
   id: serial("id").primaryKey(),
   bedId: integer("bed_id")
@@ -224,7 +210,6 @@ export const plantings = pgTable("plantings", {
   harvestedAt: timestamp("harvested_at"),
 });
 
-// Tabela: Atividades/Diário Unificado
 export const fieldActivities = pgTable("field_activities", {
   id: serial("id").primaryKey(),
   date: timestamp("date").defaultNow().notNull(),
@@ -248,7 +233,6 @@ export const fieldActivities = pgTable("field_activities", {
 // MÓDULO 5: AVICULTURA & GESTÃO GENÉTICA
 // ============================================================
 
-// Tabela: Lotes de Aves (Plantel Comercial)
 export const poultryBatches = pgTable("poultry_batches", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
@@ -261,9 +245,6 @@ export const poultryBatches = pgTable("poultry_batches", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// Tabela: Indivíduos Reprodutores (Pedigree/Elite Genética)
-// Self-referencing: fatherId/motherId -> mesma tabela
-// Variável auxiliar para quebrar referência circular do TypeScript
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let _pIndRef: any;
 
@@ -290,27 +271,9 @@ export const poultryIndividuals = pgTable("poultry_individuals", {
 _pIndRef = poultryIndividuals;
 
 // ============================================================
-// MÓDULO 6: FINANCEIRO E VENDAS
+// MÓDULO 6: FINANCEIRO, PDV E VENDAS
 // ============================================================
 
-// Tabela: Vendas de Produção
-export const sales = pgTable("sales", {
-  id: serial("id").primaryKey(),
-  date: timestamp("date").defaultNow().notNull(),
-  customerId: integer("customer_id").references(() => customers.id, {
-    onDelete: "set null",
-  }),
-  customerName: varchar("customer_name", { length: 255 }),
-  itemId: integer("item_id")
-    .notNull()
-    .references(() => inventoryItems.id, { onDelete: "cascade" }),
-  quantity: decimal("quantity", { precision: 10, scale: 2 }).notNull(),
-  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
-  totalPrice: decimal("total_price", { precision: 10, scale: 2 }).notNull(),
-  paymentStatus: paymentStatusEnum("payment_status").notNull().default("pendente"),
-});
-
-// Tabela: Clientes (CRM)
 export const customers = pgTable("customers", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
@@ -322,7 +285,34 @@ export const customers = pgTable("customers", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// Tabela: Transações Financeiras (Fluxo de Caixa)
+export const orders = pgTable("orders", {
+  id: serial("id").primaryKey(),
+  date: timestamp("date").defaultNow().notNull(),
+  customerId: integer("customer_id").references(() => customers.id, {
+    onDelete: "set null",
+  }),
+  customerName: varchar("customer_name", { length: 255 }),
+  type: orderTypeEnum("type").notNull().default("balcao"),
+  paymentMethod: paymentMethodEnum("payment_method").notNull().default("pendente"),
+  paymentStatus: paymentStatusEnum("payment_status").notNull().default("pendente"),
+  deliveryFee: decimal("delivery_fee", { precision: 10, scale: 2 }).notNull().default("0.00"),
+  subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull(),
+  total: decimal("total", { precision: 10, scale: 2 }).notNull(),
+});
+
+export const orderItems = pgTable("order_items", {
+  id: serial("id").primaryKey(),
+  orderId: integer("order_id")
+    .notNull()
+    .references(() => orders.id, { onDelete: "cascade" }),
+  itemId: integer("item_id")
+    .notNull()
+    .references(() => inventoryItems.id, { onDelete: "cascade" }),
+  quantity: decimal("quantity", { precision: 10, scale: 2 }).notNull(),
+  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
+  totalPrice: decimal("total_price", { precision: 10, scale: 2 }).notNull(),
+});
+
 export const financialTransactions = pgTable("financial_transactions", {
   id: serial("id").primaryKey(),
   date: timestamp("date").defaultNow().notNull(),
@@ -330,7 +320,7 @@ export const financialTransactions = pgTable("financial_transactions", {
   category: financialCategoryEnum("category").notNull(),
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
   description: varchar("description", { length: 255 }).notNull(),
-  saleId: integer("sale_id").references(() => sales.id, {
+  orderId: integer("order_id").references(() => orders.id, {
     onDelete: "set null",
   }),
 });
@@ -339,12 +329,10 @@ export const financialTransactions = pgTable("financial_transactions", {
 // RELACIONAMENTOS (Drizzle Relations)
 // ============================================================
 
-// Propriedade tem muitas glebas
 export const propertiesRelations = relations(properties, ({ many }) => ({
   glebes: many(glebes),
 }));
 
-// Gleba pertence a uma propriedade e tem muitos talhões
 export const glebesRelations = relations(glebes, ({ one, many }) => ({
   property: one(properties, {
     fields: [glebes.propertyId],
@@ -353,7 +341,6 @@ export const glebesRelations = relations(glebes, ({ one, many }) => ({
   fields: many(fields),
 }));
 
-// Talhão pertence a uma gleba e tem muitos canteiros
 export const fieldsRelations = relations(fields, ({ one, many }) => ({
   glebe: one(glebes, {
     fields: [fields.glebeId],
@@ -362,7 +349,6 @@ export const fieldsRelations = relations(fields, ({ one, many }) => ({
   beds: many(beds),
 }));
 
-// Canteiro pertence a um talhão e tem muitos plantios e atividades
 export const bedsRelations = relations(beds, ({ one, many }) => ({
   field: one(fields, {
     fields: [beds.fieldId],
@@ -372,18 +358,16 @@ export const bedsRelations = relations(beds, ({ one, many }) => ({
   fieldActivities: many(fieldActivities),
 }));
 
-// Item de estoque tem muitas transações, plantios, atividades e vendas
 export const inventoryItemsRelations = relations(
   inventoryItems,
   ({ many }) => ({
     transactions: many(inventoryTransactions),
     plantings: many(plantings),
     fieldActivities: many(fieldActivities),
-    sales: many(sales),
+    orderItems: many(orderItems),
   })
 );
 
-// Transação pertence a um item
 export const inventoryTransactionsRelations = relations(
   inventoryTransactions,
   ({ one }) => ({
@@ -394,7 +378,6 @@ export const inventoryTransactionsRelations = relations(
   })
 );
 
-// Plantio pertence a um canteiro e a um item
 export const plantingsRelations = relations(plantings, ({ one }) => ({
   bed: one(beds, {
     fields: [plantings.bedId],
@@ -406,7 +389,6 @@ export const plantingsRelations = relations(plantings, ({ one }) => ({
   }),
 }));
 
-// Atividade pertence a um canteiro, item, lote e indivíduo (opcionais)
 export const fieldActivitiesRelations = relations(
   fieldActivities,
   ({ one }) => ({
@@ -429,7 +411,6 @@ export const fieldActivitiesRelations = relations(
   })
 );
 
-// Lote tem muitos indivíduos
 export const poultryBatchesRelations = relations(
   poultryBatches,
   ({ many }) => ({
@@ -437,7 +418,6 @@ export const poultryBatchesRelations = relations(
   })
 );
 
-// Indivíduo pertence a um lote e tem pai/mãe (auto-referência)
 export const poultryIndividualsRelations = relations(
   poultryIndividuals,
   ({ one }) => ({
@@ -456,31 +436,36 @@ export const poultryIndividualsRelations = relations(
   })
 );
 
-// Venda pertence a um cliente (opcional), um item e tem transações financeiras vinculadas
-export const salesRelations = relations(sales, ({ one, many }) => ({
+export const customersRelations = relations(customers, ({ many }) => ({
+  orders: many(orders),
+}));
+
+export const ordersRelations = relations(orders, ({ one, many }) => ({
   customer: one(customers, {
-    fields: [sales.customerId],
+    fields: [orders.customerId],
     references: [customers.id],
   }),
-  item: one(inventoryItems, {
-    fields: [sales.itemId],
-    references: [inventoryItems.id],
-  }),
+  items: many(orderItems),
   financialTransactions: many(financialTransactions),
 }));
 
-// Cliente tem muitas vendas
-export const customersRelations = relations(customers, ({ many }) => ({
-  sales: many(sales),
+export const orderItemsRelations = relations(orderItems, ({ one }) => ({
+  order: one(orders, {
+    fields: [orderItems.orderId],
+    references: [orders.id],
+  }),
+  item: one(inventoryItems, {
+    fields: [orderItems.itemId],
+    references: [inventoryItems.id],
+  }),
 }));
 
-// Transação financeira pertence a uma venda (opcional)
 export const financialTransactionsRelations = relations(
   financialTransactions,
   ({ one }) => ({
-    sale: one(sales, {
-      fields: [financialTransactions.saleId],
-      references: [sales.id],
+    order: one(orders, {
+      fields: [financialTransactions.orderId],
+      references: [orders.id],
     }),
   })
 );

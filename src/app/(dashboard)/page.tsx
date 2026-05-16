@@ -7,7 +7,7 @@ import {
   getPoultryOverview,
   getRecentActivities,
   getLowStockAlerts,
-  getPendingSales,
+  getPendingOrders,
 } from "@/actions/dashboard";
 import { DbTools } from "@/components/finance/db-tools";
 import {
@@ -97,12 +97,12 @@ interface StockItem {
   currentStock: number;
 }
 
-interface PendingSale {
+interface PendingOrder {
   id: number;
   date: Date;
   customerName: string | null;
-  totalPrice: string;
-  itemName: string | null;
+  total: string;
+  itemCount: number;
 }
 
 export default function DashboardPage() {
@@ -115,7 +115,7 @@ export default function DashboardPage() {
   const [activeBatches, setActiveBatches] = useState(0);
   const [recentActivities, setRecentActivities] = useState<ActivityItem[]>([]);
   const [lowStockItems, setLowStockItems] = useState<StockItem[]>([]);
-  const [pendingSales, setPendingSales] = useState<PendingSale[]>([]);
+  const [pendingOrders, setPendingOrders] = useState<PendingOrder[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
@@ -134,7 +134,7 @@ export default function DashboardPage() {
       getPoultryOverview(),
       getRecentActivities(),
       getLowStockAlerts(),
-      getPendingSales(),
+      getPendingOrders(),
     ]);
 
     if (financialResult.success) {
@@ -162,7 +162,7 @@ export default function DashboardPage() {
     }
 
     if (pendingResult.success) {
-      setPendingSales(pendingResult.data);
+      setPendingOrders(pendingResult.data);
     }
 
     setLoading(false);
@@ -352,23 +352,23 @@ export default function DashboardPage() {
               <p className="text-xs text-gray-400">Estoque em dia</p>
             )}
 
-            {/* Vendas Pendentes */}
-            {pendingSales.length > 0 && (
+            {/* Pedidos Pendentes */}
+            {pendingOrders.length > 0 && (
               <>
                 {lowStockItems.length > 0 && <div className="border-t border-gray-100 pt-3" />}
                 <p className="text-xs font-medium text-gray-600 flex items-center gap-1">
                   <ShoppingCart className="size-3" />
-                  {pendingSales.length} venda{pendingSales.length !== 1 ? "s" : ""} pendente{pendingSales.length !== 1 ? "s" : ""}
+                  {pendingOrders.length} pedido{pendingOrders.length !== 1 ? "s" : ""} pendente{pendingOrders.length !== 1 ? "s" : ""}
                 </p>
-                {pendingSales.slice(0, 3).map((sale) => (
-                  <div key={sale.id} className="flex items-center gap-2">
+                {pendingOrders.slice(0, 3).map((order) => (
+                  <div key={order.id} className="flex items-center gap-2">
                     <span className="flex size-2 rounded-full bg-amber-400 shrink-0" />
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-medium text-gray-900 truncate">
-                        {sale.customerName || "Sem cliente"}
+                        {order.customerName || "Sem cliente"}
                       </p>
                       <p className="text-xs text-amber-600">
-                        {formatCurrency(sale.totalPrice)}
+                        {formatCurrency(order.total)} · {order.itemCount} {order.itemCount !== 1 ? "itens" : "item"}
                       </p>
                     </div>
                   </div>
@@ -376,7 +376,7 @@ export default function DashboardPage() {
               </>
             )}
 
-            {lowStockItems.length === 0 && pendingSales.length === 0 && (
+            {lowStockItems.length === 0 && pendingOrders.length === 0 && (
               <p className="text-xs text-gray-400">Nenhum alerta no momento</p>
             )}
           </div>

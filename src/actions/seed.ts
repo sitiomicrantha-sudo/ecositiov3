@@ -3,7 +3,8 @@
 import { db } from "@/db";
 import {
   financialTransactions,
-  sales,
+  orders,
+  orderItems,
   inventoryTransactions,
   fieldActivities,
   plantings,
@@ -31,7 +32,8 @@ function dateStr(n: number): string {
 export async function seedDatabase(): Promise<ActionResult<string>> {
   try {
     await db.delete(financialTransactions);
-    await db.delete(sales);
+    await db.delete(orderItems);
+    await db.delete(orders);
     await db.delete(inventoryTransactions);
     await db.delete(fieldActivities);
     await db.delete(plantings);
@@ -54,7 +56,8 @@ export async function seedDatabase(): Promise<ActionResult<string>> {
     await db.execute(`SELECT setval('plantings_id_seq', 1, false)`);
     await db.execute(`SELECT setval('field_activities_id_seq', 1, false)`);
     await db.execute(`SELECT setval('customers_id_seq', 1, false)`);
-    await db.execute(`SELECT setval('sales_id_seq', 1, false)`);
+    await db.execute(`SELECT setval('orders_id_seq', 1, false)`);
+    await db.execute(`SELECT setval('order_items_id_seq', 1, false)`);
     await db.execute(`SELECT setval('financial_transactions_id_seq', 1, false)`);
     await db.execute(`SELECT setval('inventory_transactions_id_seq', 1, false)`);
 
@@ -151,6 +154,7 @@ export async function seedDatabase(): Promise<ActionResult<string>> {
         type: "final_product",
         category: "estaca",
         location: "Viveiro - Canteiro Estacas",
+        basePrice: "5.00",
       })
       .returning();
 
@@ -162,6 +166,7 @@ export async function seedDatabase(): Promise<ActionResult<string>> {
         type: "final_product",
         category: "semente",
         location: "Gleba Sul - Armazém",
+        basePrice: "15.00",
       })
       .returning();
 
@@ -173,6 +178,7 @@ export async function seedDatabase(): Promise<ActionResult<string>> {
         type: "final_product",
         category: "insumo",
         location: "Aviário",
+        basePrice: "12.00",
       })
       .returning();
 
@@ -330,37 +336,72 @@ export async function seedDatabase(): Promise<ActionResult<string>> {
       })
       .returning();
 
-    const vendas = await db
-      .insert(sales)
-      .values([
-        { date: daysAgo(1), customerId: clienteB2B.id, itemId: itemOvos.id, quantity: "60", unitPrice: "12.00", totalPrice: "720.00", paymentStatus: "pago" },
-        { date: daysAgo(2), customerId: clienteB2C1.id, itemId: itemOvos.id, quantity: "12", unitPrice: "12.00", totalPrice: "144.00", paymentStatus: "pago" },
-        { date: daysAgo(3), customerId: clienteB2C2.id, itemId: itemEstacaAmora.id, quantity: "20", unitPrice: "5.00", totalPrice: "100.00", paymentStatus: "pago" },
-        { date: daysAgo(5), customerId: clienteB2B.id, itemId: itemSementeFeijao.id, quantity: "10", unitPrice: "15.00", totalPrice: "150.00", paymentStatus: "pago" },
-        { date: daysAgo(7), customerName: "Feirante da Praça", itemId: itemOvos.id, quantity: "24", unitPrice: "12.00", totalPrice: "288.00", paymentStatus: "pago" },
-        { date: daysAgo(10), customerId: clienteB2C1.id, itemId: itemEstacaAmora.id, quantity: "10", unitPrice: "5.00", totalPrice: "50.00", paymentStatus: "pago" },
-        { date: daysAgo(0), customerId: clienteB2B.id, itemId: itemOvos.id, quantity: "36", unitPrice: "12.00", totalPrice: "432.00", paymentStatus: "pendente" },
-        { date: daysAgo(4), customerId: clienteB2C2.id, itemId: itemSementeFeijao.id, quantity: "5", unitPrice: "15.00", totalPrice: "75.00", paymentStatus: "pendente" },
-        { date: daysAgo(6), customerName: "Turista", itemId: itemEstacaAmora.id, quantity: "5", unitPrice: "5.00", totalPrice: "25.00", paymentStatus: "pendente" },
-        { date: daysAgo(8), itemId: itemOvos.id, quantity: "12", unitPrice: "12.00", totalPrice: "144.00", paymentStatus: "pendente" },
-      ])
-      .returning();
+    const pedidos = [
+      { date: daysAgo(1), customerId: clienteB2B.id, customerName: null, items: [{ itemId: itemOvos.id, quantity: "60", unitPrice: "12.00", totalPrice: "720.00" }], paymentMethod: "pix" as const, paymentStatus: "pago" as const, type: "delivery" as const, deliveryFee: "5.00" },
+      { date: daysAgo(2), customerId: clienteB2C1.id, customerName: null, items: [{ itemId: itemOvos.id, quantity: "12", unitPrice: "12.00", totalPrice: "144.00" }], paymentMethod: "dinheiro" as const, paymentStatus: "pago" as const, type: "balcao" as const, deliveryFee: "0.00" },
+      { date: daysAgo(3), customerId: clienteB2C2.id, customerName: null, items: [{ itemId: itemEstacaAmora.id, quantity: "20", unitPrice: "5.00", totalPrice: "100.00" }], paymentMethod: "pix" as const, paymentStatus: "pago" as const, type: "balcao" as const, deliveryFee: "0.00" },
+      { date: daysAgo(5), customerId: clienteB2B.id, customerName: null, items: [{ itemId: itemSementeFeijao.id, quantity: "10", unitPrice: "15.00", totalPrice: "150.00" }], paymentMethod: "cartao" as const, paymentStatus: "pago" as const, type: "delivery" as const, deliveryFee: "8.00" },
+      { date: daysAgo(7), customerId: null, customerName: "Feirante da Praça", items: [{ itemId: itemOvos.id, quantity: "24", unitPrice: "12.00", totalPrice: "288.00" }], paymentMethod: "dinheiro" as const, paymentStatus: "pago" as const, type: "balcao" as const, deliveryFee: "0.00" },
+      { date: daysAgo(10), customerId: clienteB2C1.id, customerName: null, items: [{ itemId: itemEstacaAmora.id, quantity: "10", unitPrice: "5.00", totalPrice: "50.00" }], paymentMethod: "pix" as const, paymentStatus: "pago" as const, type: "balcao" as const, deliveryFee: "0.00" },
+      { date: daysAgo(0), customerId: clienteB2B.id, customerName: null, items: [{ itemId: itemOvos.id, quantity: "36", unitPrice: "12.00", totalPrice: "432.00" }], paymentMethod: "pendente" as const, paymentStatus: "pendente" as const, type: "delivery" as const, deliveryFee: "5.00" },
+      { date: daysAgo(4), customerId: clienteB2C2.id, customerName: null, items: [{ itemId: itemSementeFeijao.id, quantity: "5", unitPrice: "15.00", totalPrice: "75.00" }], paymentMethod: "pendente" as const, paymentStatus: "pendente" as const, type: "balcao" as const, deliveryFee: "0.00" },
+      { date: daysAgo(6), customerId: null, customerName: "Turista", items: [{ itemId: itemEstacaAmora.id, quantity: "5", unitPrice: "5.00", totalPrice: "25.00" }], paymentMethod: "pendente" as const, paymentStatus: "pendente" as const, type: "balcao" as const, deliveryFee: "0.00" },
+      { date: daysAgo(8), customerId: null, customerName: null, items: [{ itemId: itemOvos.id, quantity: "12", unitPrice: "12.00", totalPrice: "144.00" }], paymentMethod: "pendente" as const, paymentStatus: "pendente" as const, type: "balcao" as const, deliveryFee: "0.00" },
+    ];
 
-    const vendasPagas = vendas.filter((v) => v.paymentStatus === "pago");
-    for (const v of vendasPagas) {
-      const customerLabel = v.customerId
-        ? (v.customerId === clienteB2B.id ? "Restaurante Central Guaíba" : v.customerId === clienteB2C1.id ? "Dona Maria" : "Cliente Vizinho")
-        : v.customerName || "Anônimo";
-      const itemLabel = v.itemId === itemOvos.id ? "Ovos" : v.itemId === itemEstacaAmora.id ? "Estaca de Amora" : "Semente Feijão Guandu";
+    for (const p of pedidos) {
+      const subtotal = p.items.reduce((sum, i) => sum + parseFloat(i.totalPrice), 0);
+      const total = (subtotal + parseFloat(p.deliveryFee)).toFixed(2);
 
-      await db.insert(financialTransactions).values({
-        date: v.date,
-        type: "revenue",
-        category: "venda_producao",
-        amount: v.totalPrice,
-        description: `Venda: ${itemLabel} para ${customerLabel}`,
-        saleId: v.id,
-      });
+      const [newOrder] = await db
+        .insert(orders)
+        .values({
+          date: p.date,
+          customerId: p.customerId,
+          customerName: p.customerName,
+          type: p.type,
+          paymentMethod: p.paymentMethod,
+          paymentStatus: p.paymentStatus,
+          deliveryFee: p.deliveryFee,
+          subtotal: subtotal.toFixed(2),
+          total,
+        })
+        .returning();
+
+      for (const item of p.items) {
+        await db.insert(orderItems).values({
+          orderId: newOrder.id,
+          itemId: item.itemId,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          totalPrice: item.totalPrice,
+        });
+      }
+
+      if (p.paymentStatus === "pago") {
+        const customerLabel = p.customerId
+          ? (p.customerId === clienteB2B.id ? "Restaurante Central Guaíba" : p.customerId === clienteB2C1.id ? "Dona Maria" : "Cliente Vizinho")
+          : p.customerName || "Anônimo";
+
+        await db.insert(financialTransactions).values({
+          date: p.date,
+          type: "revenue",
+          category: "venda_producao",
+          amount: total,
+          description: `Pedido #${newOrder.id} - ${customerLabel}`,
+          orderId: newOrder.id,
+        });
+
+        for (const item of p.items) {
+          await db.insert(inventoryTransactions).values({
+            itemId: item.itemId,
+            type: "exit",
+            quantity: item.quantity,
+            date: p.date.toISOString().split("T")[0],
+            notes: `Pedido #${newOrder.id}`,
+          });
+        }
+      }
     }
 
     await db.insert(financialTransactions).values([
@@ -377,16 +418,6 @@ export async function seedDatabase(): Promise<ActionResult<string>> {
       { itemId: itemRacao.id, type: "entry", quantity: "200", date: dateStr(10), notes: "Compra de ração" },
     ]);
 
-    for (const v of vendasPagas) {
-      await db.insert(inventoryTransactions).values({
-        itemId: v.itemId,
-        type: "exit",
-        quantity: v.quantity,
-        date: v.date.toISOString().split("T")[0],
-        notes: `Venda #${v.id}`,
-      });
-    }
-
     return { success: true, data: "Seed concluído com sucesso! Dados fictícios inseridos." };
   } catch (error) {
     return { success: false, error: `Erro ao executar seed: ${error instanceof Error ? error.message : "Erro desconhecido"}` };
@@ -396,7 +427,8 @@ export async function seedDatabase(): Promise<ActionResult<string>> {
 export async function clearDatabase(): Promise<ActionResult<string>> {
   try {
     await db.delete(financialTransactions);
-    await db.delete(sales);
+    await db.delete(orderItems);
+    await db.delete(orders);
     await db.delete(inventoryTransactions);
     await db.delete(fieldActivities);
     await db.delete(plantings);
@@ -419,7 +451,8 @@ export async function clearDatabase(): Promise<ActionResult<string>> {
     await db.execute(`SELECT setval('plantings_id_seq', 1, false)`);
     await db.execute(`SELECT setval('field_activities_id_seq', 1, false)`);
     await db.execute(`SELECT setval('customers_id_seq', 1, false)`);
-    await db.execute(`SELECT setval('sales_id_seq', 1, false)`);
+    await db.execute(`SELECT setval('orders_id_seq', 1, false)`);
+    await db.execute(`SELECT setval('order_items_id_seq', 1, false)`);
     await db.execute(`SELECT setval('financial_transactions_id_seq', 1, false)`);
     await db.execute(`SELECT setval('inventory_transactions_id_seq', 1, false)`);
 

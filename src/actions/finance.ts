@@ -2,20 +2,17 @@
 
 import { db } from "@/db";
 import {
-  sales,
+  orders,
+  orderItems,
   financialTransactions,
   inventoryTransactions,
   inventoryItems,
 } from "@/db/schema";
-import { eq, and, gte, lte, desc, asc } from "drizzle-orm";
+import { eq, desc, asc } from "drizzle-orm";
 import { z } from "zod";
 import type { ActionResult } from "./topology";
 
-// ============================================================
-// SCHEMAS DE VALIDAÇÃO (Zod)
-// ============================================================
-
-const saleSchema = z.object({
+const orderFormSchema = z.object({
   customerName: z.string().max(255).optional(),
   customerId: z.number().int().positive().optional(),
   itemId: z.number().int().positive("Selecione um item"),
@@ -45,48 +42,52 @@ const expenseSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data deve estar no formato YYYY-MM-DD"),
 });
 
-// ============================================================
-// VENDAS (Sales)
-// ============================================================
-
-export async function registerSale(
-  formData: z.infer<typeof saleSchema>
-): Promise<ActionResult<typeof sales.$inferSelect>> {
+export async function registerManualOrder(
+  formData: z.infer<typeof orderFormSchema>
+): Promise<ActionResult<typeof orders.$inferSelect>> {
   try {
-    const validated = saleSchema.parse(formData);
+    const validated = orderFormSchema.parse(formData);
     const quantity = parseFloat(validated.quantity);
     const unitPrice = parseFloat(validated.unitPrice);
     const totalPrice = quantity * unitPrice;
 
-    const saleDate = new Date(validated.date);
+    const orderDate = new Date(validated.date);
 
-    const [newSale] = await db
-      .insert(sales)
+    const [newOrder] = await db
+      .insert(orders)
       .values({
-        date: saleDate,
+        date: orderDate,
         customerId: validated.customerId || null,
         customerName: validated.customerName || null,
-        itemId: validated.itemId,
-        quantity: validated.quantity,
-        unitPrice: validated.unitPrice,
-        totalPrice: totalPrice.toFixed(2),
+        type: "balcao",
+        paymentMethod: validated.paymentStatus === "pago" ? "pix" : "pendente",
         paymentStatus: validated.paymentStatus,
+        deliveryFee: "0.00",
+        subtotal: totalPrice.toFixed(2),
+        total: totalPrice.toFixed(2),
       })
-      .returning() as unknown as typeof sales.$inferSelect[];
+      .returning();
 
-    // Se pago, cria transação financeira (receita) + baixa no estoque
+    await db.insert(orderItems).values({
+      orderId: newOrder.id,
+      itemId: validated.itemId,
+      quantity: validated.quantity,
+      unitPrice: validated.unitPrice,
+      totalPrice: totalPrice.toFixed(2),
+    });
+
     if (validated.paymentStatus === "pago") {
       const item = await db.query.inventoryItems.findFirst({
         where: eq(inventoryItems.id, validated.itemId),
       });
 
       await db.insert(financialTransactions).values({
-        date: saleDate,
+        date: orderDate,
         type: "revenue",
         category: "venda_producao",
         amount: totalPrice.toFixed(2),
-        description: `Venda: ${item?.name || "Item"}${validated.customerName ? ` para ${validated.customerName}` : ""}`,
-        saleId: newSale.id,
+        description: `Pedido #${newOrder.id}: ${item?.name || "Item"}${validated.customerName ? ` para ${validated.customerName}` : ""}`,
+        orderId: newOrder.id,
       });
 
       await db.insert(inventoryTransactions).values({
@@ -94,101 +95,123 @@ export async function registerSale(
         type: "exit",
         quantity: validated.quantity,
         date: validated.date,
-        notes: `Venda #${newSale.id}${validated.customerName ? ` - ${validated.customerName}` : ""}`,
+        notes: `Pedido #${newOrder.id}${validated.customerName ? ` - ${validated.customerName}` : ""}`,
       });
     }
 
-    return { success: true, data: newSale };
+    return { success: true, data: newOrder };
   } catch (error) {
     if (error instanceof z.ZodError) {
       return { success: false, error: error.issues[0].message };
     }
-    return { success: false, error: "Erro ao registrar venda" };
+    return { success: false, error: "Erro ao registrar pedido" };
   }
 }
 
-export async function confirmPayment(
-  saleId: number
-): Promise<ActionResult<typeof sales.$inferSelect>> {
+export async function confirmOrderPayment(
+  orderId: number
+): Promise<ActionResult<typeof orders.$inferSelect>> {
   try {
-    const sale = await db.query.sales.findFirst({
-      where: eq(sales.id, saleId),
+    const order = await db.query.orders.findFirst({
+      where: eq(orders.id, orderId),
       with: {
-        item: true,
+        items: {
+          with: {
+            item: true,
+          },
+        },
       },
     });
 
-    if (!sale) {
-      return { success: false, error: "Venda não encontrada" };
+    if (!order) {
+      return { success: false, error: "Pedido não encontrado" };
     }
 
-    if (sale.paymentStatus === "pago") {
-      return { success: false, error: "Esta venda já está com pagamento confirmado" };
+    if (order.paymentStatus === "pago") {
+      return { success: false, error: "Este pedido já está com pagamento confirmado" };
     }
 
-    const totalPrice = parseFloat(sale.totalPrice);
-
-    // Atualiza status para pago
-    const [updatedSale] = await db
-      .update(sales)
+    const [updatedOrder] = await db
+      .update(orders)
       .set({ paymentStatus: "pago" })
-      .where(eq(sales.id, saleId))
-      .returning() as unknown as typeof sales.$inferSelect[];
+      .where(eq(orders.id, orderId))
+      .returning();
 
-    // Cria transação financeira (receita)
     await db.insert(financialTransactions).values({
-      date: sale.date,
+      date: order.date,
       type: "revenue",
       category: "venda_producao",
-      amount: sale.totalPrice,
-      description: `Venda: ${sale.item?.name || "Item"}${sale.customerName ? ` para ${sale.customerName}` : ""} (pagamento confirmado)`,
-      saleId,
+      amount: order.total,
+      description: `Pedido #${orderId}${order.customerName ? ` - ${order.customerName}` : ""} (pagamento confirmado)`,
+      orderId,
     });
 
-    // Cria baixa no estoque
-    await db.insert(inventoryTransactions).values({
-      itemId: sale.itemId,
-      type: "exit",
-      quantity: sale.quantity,
-      date: sale.date.toISOString().split("T")[0],
-      notes: `Venda #${saleId}${sale.customerName ? ` - ${sale.customerName}` : ""} (pagamento confirmado)`,
-    });
+    for (const oi of order.items) {
+      await db.insert(inventoryTransactions).values({
+        itemId: oi.itemId,
+        type: "exit",
+        quantity: oi.quantity,
+        date: order.date.toISOString().split("T")[0],
+        notes: `Pedido #${orderId}${order.customerName ? ` - ${order.customerName}` : ""} (pagamento confirmado)`,
+      });
+    }
 
-    return { success: true, data: updatedSale };
+    return { success: true, data: updatedOrder };
   } catch {
     return { success: false, error: "Erro ao confirmar pagamento" };
   }
 }
 
-export async function getSalesList(): Promise<
+export async function getOrdersList(): Promise<
   ActionResult<
-    (typeof sales.$inferSelect & {
-      itemName: string | null;
-    })[]
+    {
+      id: number;
+      date: Date;
+      customerName: string | null;
+      type: string;
+      paymentMethod: string;
+      paymentStatus: string;
+      subtotal: string;
+      total: string;
+      deliveryFee: string;
+      items: { itemName: string; quantity: string; totalPrice: string }[];
+    }[]
   >
 > {
   try {
-    const salesList = await db.query.sales.findMany({
+    const orderList = await db.query.orders.findMany({
       with: {
-        item: true,
+        items: {
+          with: {
+            item: true,
+          },
+        },
       },
-      orderBy: (sales, { desc }) => [desc(sales.date)],
+      orderBy: [desc(orders.date)],
     });
 
-    const enriched = salesList.map((s) => ({
-      ...s,
-      itemName: (s.item as { name: string } | null)?.name || null,
+    const enriched = orderList.map((o) => ({
+      id: o.id,
+      date: o.date,
+      customerName: o.customerName || null,
+      type: o.type,
+      paymentMethod: o.paymentMethod,
+      paymentStatus: o.paymentStatus,
+      subtotal: o.subtotal,
+      total: o.total,
+      deliveryFee: o.deliveryFee,
+      items: (o.items as any[]).map((oi: any) => ({
+        itemName: oi.item?.name || "—",
+        quantity: oi.quantity,
+        totalPrice: oi.totalPrice,
+      })),
     }));
 
     return { success: true, data: enriched };
   } catch {
-    return { success: false, error: "Erro ao buscar vendas" };
+    return { success: false, error: "Erro ao buscar pedidos" };
   }
 }
-
-// ============================================================
-// DESPESAS (Expenses)
-// ============================================================
 
 export async function registerExpense(
   formData: z.infer<typeof expenseSchema>
@@ -216,10 +239,6 @@ export async function registerExpense(
     return { success: false, error: "Erro ao registrar despesa" };
   }
 }
-
-// ============================================================
-// RESUMO FINANCEIRO
-// ============================================================
 
 export async function getFinancialSummary(): Promise<
   ActionResult<{
@@ -277,30 +296,22 @@ export async function getFinancialSummary(): Promise<
 export async function getTransactionsList(): Promise<
   ActionResult<
     (typeof financialTransactions.$inferSelect & {
-      saleCustomerName: string | null;
-      saleItemName: string | null;
+      orderCustomerName: string | null;
     })[]
   >
 > {
   try {
     const transactions = await db.query.financialTransactions.findMany({
       with: {
-        sale: {
-          with: {
-            item: true,
-          },
-        },
+        order: true,
       },
-      orderBy: (financialTransactions, { desc }) => [desc(financialTransactions.date)],
+      orderBy: [desc(financialTransactions.date)],
     });
 
     const enriched = transactions.map((tx) => ({
       ...tx,
-      saleCustomerName: tx.sale
-        ? (tx.sale as { customerName: string | null }).customerName
-        : null,
-      saleItemName: tx.sale
-        ? ((tx.sale as { item: { name: string } }).item?.name || null)
+      orderCustomerName: tx.order
+        ? (tx.order as { customerName: string | null }).customerName
         : null,
     }));
 

@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Plus, Loader2, DollarSign } from "lucide-react";
-import { registerSale, getItemsForSale } from "@/actions/finance";
+import { registerManualOrder, getItemsForSale } from "@/actions/finance";
 import { getActiveCustomersForSelect } from "@/actions/crm";
 import type { inventoryItems, customers } from "@/db/schema";
 
@@ -157,10 +157,10 @@ export function SaleForm({ onSuccess }: SaleFormProps) {
         customerId: selectedCustomerId,
       };
 
-      const result = await registerSale(submitData);
+      const result = await registerManualOrder(submitData);
 
       if (result.success) {
-        const statusLabel = values.paymentStatus === "pago" ? "Venda registrada com baixa no estoque!" : "Venda registrada como pendente!";
+        const statusLabel = values.paymentStatus === "pago" ? "Pedido registrado com baixa no estoque!" : "Pedido registrado como pendente!";
         toast.success(statusLabel);
         form.reset();
         setSelectedCustomerId(undefined);
@@ -171,7 +171,7 @@ export function SaleForm({ onSuccess }: SaleFormProps) {
         toast.error(result.error);
       }
     } catch {
-      toast.error("Erro inesperado ao registrar venda");
+      toast.error("Erro inesperado ao registrar pedido");
     } finally {
       setIsSubmitting(false);
     }
@@ -184,14 +184,14 @@ export function SaleForm({ onSuccess }: SaleFormProps) {
       <DialogTrigger onClick={() => setOpen(true)}>
         <div className="inline-flex shrink-0 cursor-pointer items-center justify-center rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700">
           <Plus className="mr-2 size-4" />
-          Registrar Venda
+          Registrar Pedido
         </div>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-green-900">Registrar Venda</DialogTitle>
+          <DialogTitle className="text-green-900">Registrar Pedido</DialogTitle>
           <DialogDescription>
-            Registre uma venda de produção. Se paga, baixa automática no estoque.
+            Registre um pedido de venda. Se pago, baixa automática no estoque.
           </DialogDescription>
         </DialogHeader>
 
@@ -388,7 +388,7 @@ export function SaleForm({ onSuccess }: SaleFormProps) {
                       Registrando...
                     </>
                   ) : (
-                    "Registrar Venda"
+                    "Registrar Pedido"
                   )}
                 </button>
               </DialogFooter>
