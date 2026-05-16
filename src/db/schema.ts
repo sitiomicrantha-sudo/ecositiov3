@@ -27,6 +27,14 @@ export const transactionTypeEnum = pgEnum("transaction_type", [
   "exit",
 ]);
 
+// Categoria de germoplasma/insumo
+export const categoryEnum = pgEnum("category", [
+  "muda",
+  "estaca",
+  "semente",
+  "insumo",
+]);
+
 // ============================================================
 // MÓDULO 1: ESTRUTURA TOPOLÓGICA
 // Hierarquia: Propriedade > Gleba > Talhão > Canteiro
@@ -91,6 +99,8 @@ export const inventoryItems = pgTable("inventory_items", {
   name: varchar("name", { length: 255 }).notNull(),
   unit: unitEnum("unit").notNull(),
   type: itemTypeEnum("type").notNull(),
+  category: categoryEnum("category").notNull().default("insumo"),
+  location: varchar("location", { length: 255 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

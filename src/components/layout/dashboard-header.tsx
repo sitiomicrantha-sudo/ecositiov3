@@ -8,6 +8,7 @@ import { usePathname } from "next/navigation";
 const pageTitles: Record<string, string> = {
   "/": "Visão Geral",
   "/areas": "Topologia / Áreas",
+  "/estoque": "Estoque / Germoplasma",
   "/campo": "Caderno de Campo",
   "/avicultura": "Avicultura",
   "/inventario": "Inventário",

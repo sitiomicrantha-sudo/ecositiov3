@@ -18,6 +18,10 @@ const inventoryItemSchema = z.object({
   type: z.enum(["input", "final_product"], {
     message: "Tipo deve ser input (insumo) ou final_product (produto final)",
   }),
+  category: z.enum(["muda", "estaca", "semente", "insumo"], {
+    message: "Categoria deve ser muda, estaca, semente ou insumo",
+  }),
+  location: z.string().max(255, "Localização deve ter no máximo 255 caracteres").optional(),
 });
 
 const inventoryTransactionSchema = z.object({
@@ -48,6 +52,8 @@ export async function createInventoryItem(
         name: validated.name,
         unit: validated.unit,
         type: validated.type,
+        category: validated.category,
+        location: validated.location || null,
       })
       .returning();
 
@@ -101,6 +107,36 @@ export async function createInventoryTransaction(
       return { success: false, error: error.issues[0].message };
     }
     return { success: false, error: "Erro ao criar transação de estoque" };
+  }
+}
+
+export async function getInventoryTransactions(): Promise<
+  ActionResult<
+    (typeof inventoryTransactions.$inferSelect & {
+      itemName: string;
+      itemUnit: string;
+    })[]
+  >
+> {
+  try {
+    const transactions = await db.query.inventoryTransactions.findMany({
+      with: {
+        item: true,
+      },
+      orderBy: (inventoryTransactions, { desc }) => [
+        desc(inventoryTransactions.createdAt),
+      ],
+    });
+
+    const enriched = transactions.map((tx) => ({
+      ...tx,
+      itemName: tx.item.name,
+      itemUnit: tx.item.unit,
+    }));
+
+    return { success: true, data: enriched };
+  } catch {
+    return { success: false, error: "Erro ao buscar transações" };
   }
 }
 
