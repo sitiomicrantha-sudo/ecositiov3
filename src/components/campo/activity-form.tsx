@@ -23,17 +23,21 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertTriangle } from "lucide-react";
 import {
   registerFieldActivity,
   findOrCreateEggsItem,
   getBedsWithPlantingStatus,
   getPlantableItems,
   getAllInventoryItems,
+  getInputItems,
+  getActiveBatchesForField,
+  getItemStock,
 } from "@/actions/field-activities";
-import type { inventoryItems } from "@/db/schema";
+import type { inventoryItems, poultryBatches } from "@/db/schema";
 
 type InventoryItem = typeof inventoryItems.$inferSelect;
+type BatchItem = typeof poultryBatches.$inferSelect;
 
 const activityFormSchema = z.object({
   activityType: z.enum([
@@ -44,9 +48,13 @@ const activityFormSchema = z.object({
     "coleta_esterco",
     "aplicacao_insumo",
     "rocagem",
+    "alimentacao_racao",
+    "manejo_ambiencia",
+    "movimentacao_piquete",
   ]),
   bedId: z.number().int().positive().optional(),
   itemId: z.number().int().positive().optional(),
+  batchId: z.number().int().positive().optional(),
   quantity: z
     .string()
     .regex(/^\d+(\.\d{1,2})?$/, "Quantidade deve ser um número válido")
@@ -73,6 +81,9 @@ const activityLabels: Record<string, string> = {
   coleta_esterco: "Coleta de Esterco",
   aplicacao_insumo: "Aplicação de Insumo",
   rocagem: "Registrar Roçagem",
+  alimentacao_racao: "Fornecer Ração",
+  manejo_ambiencia: "Manejo de Ambiência",
+  movimentacao_piquete: "Soltar no Piquete",
 };
 
 const activityDescriptions: Record<string, string> = {
@@ -83,6 +94,9 @@ const activityDescriptions: Record<string, string> = {
   coleta_esterco: "Registre a coleta de esterco para compostagem ou bioinsumos.",
   aplicacao_insumo: "Registre a aplicação de insumo em um canteiro.",
   rocagem: "Registre a roçagem realizada em um canteiro ou área.",
+  alimentacao_racao: "Registre a quantidade de ração fornecida. O estoque será deduzido automaticamente.",
+  manejo_ambiencia: "Registre condições de ambiência: cama do aviário, temperatura, sanidade.",
+  movimentacao_piquete: "Registre qual lote foi solto em qual piquete/canteiro.",
 };
 
 const needsBed = ["plantio", "colheita", "aplicacao_insumo", "rocagem"];
@@ -90,11 +104,19 @@ const needsItem = ["plantio", "colheita", "aplicacao_insumo"];
 const needsQuantity = ["colheita", "coleta_ovos", "coleta_esterco"];
 const needsPlantingStatus = ["plantio"];
 
+const needsBatch = ["alimentacao_racao", "manejo_ambiencia", "movimentacao_piquete"];
+const needsItemForFeed = ["alimentacao_racao"];
+const needsQuantityForFeed = ["alimentacao_racao"];
+const needsBedForPiquete = ["movimentacao_piquete"];
+
 export function ActivityForm({ activityType, open, onOpenChange, onSuccess }: ActivityFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [beds, setBeds] = useState<{ id: number; name: string }[]>([]);
   const [items, setItems] = useState<InventoryItem[]>([]);
+  const [batches, setBatches] = useState<BatchItem[]>([]);
   const [loadingOptions, setLoadingOptions] = useState(false);
+  const [currentStock, setCurrentStock] = useState<number | null>(null);
+  const [stockUnit, setStockUnit] = useState<string>("");
 
   const today = new Date().toISOString().split("T")[0];
 
@@ -104,6 +126,7 @@ export function ActivityForm({ activityType, open, onOpenChange, onSuccess }: Ac
       activityType: "plantio",
       bedId: undefined,
       itemId: undefined,
+      batchId: undefined,
       quantity: "",
       date: today,
       notes: "",
@@ -117,11 +140,13 @@ export function ActivityForm({ activityType, open, onOpenChange, onSuccess }: Ac
         activityType: activityType as ActivityFormValues["activityType"],
         bedId: undefined,
         itemId: undefined,
+        batchId: undefined,
         quantity: "",
         date: today,
         notes: "",
         plantingStatus: "active",
       });
+      setCurrentStock(null);
       loadOptions();
     }
   }, [open, activityType]);
@@ -130,6 +155,15 @@ export function ActivityForm({ activityType, open, onOpenChange, onSuccess }: Ac
     setLoadingOptions(true);
 
     if (needsBed.includes(activityType || "")) {
+      const bedsResult = await getBedsWithPlantingStatus();
+      if (bedsResult.success) {
+        setBeds(
+          bedsResult.data.map((b) => ({ id: b.id, name: b.name }))
+        );
+      }
+    }
+
+    if (needsBedForPiquete.includes(activityType || "")) {
       const bedsResult = await getBedsWithPlantingStatus();
       if (bedsResult.success) {
         setBeds(
@@ -148,9 +182,34 @@ export function ActivityForm({ activityType, open, onOpenChange, onSuccess }: Ac
       if (itemsResult.success) {
         setItems(itemsResult.data);
       }
+    } else if (activityType === "alimentacao_racao") {
+      const itemsResult = await getInputItems();
+      if (itemsResult.success) {
+        setItems(itemsResult.data);
+      }
+    }
+
+    if (needsBatch.includes(activityType || "")) {
+      const batchesResult = await getActiveBatchesForField();
+      if (batchesResult.success) {
+        setBatches(batchesResult.data);
+      }
     }
 
     setLoadingOptions(false);
+  }
+
+  async function handleItemChange(itemId: number | undefined) {
+    form.setValue("itemId", itemId);
+    if (itemId && activityType === "alimentacao_racao") {
+      const stockResult = await getItemStock(itemId);
+      if (stockResult.success) {
+        setCurrentStock(stockResult.data.currentStock);
+        setStockUnit(stockResult.data.unit);
+      }
+    } else {
+      setCurrentStock(null);
+    }
   }
 
   async function onSubmit(values: ActivityFormValues) {
@@ -188,6 +247,12 @@ export function ActivityForm({ activityType, open, onOpenChange, onSuccess }: Ac
   const showItem = needsItem.includes(activityType);
   const showQuantity = needsQuantity.includes(activityType);
   const showPlantingStatus = needsPlantingStatus.includes(activityType);
+  const showBatch = needsBatch.includes(activityType);
+  const showItemForFeed = needsItemForFeed.includes(activityType);
+  const showQuantityForFeed = needsQuantityForFeed.includes(activityType);
+  const showBedForPiquete = needsBedForPiquete.includes(activityType);
+
+  const isStockNegative = currentStock !== null && currentStock < 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -208,6 +273,7 @@ export function ActivityForm({ activityType, open, onOpenChange, onSuccess }: Ac
         ) : (
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              {/* Canteiro (Horta/SAF) */}
               {showBed && beds.length > 0 && (
                 <FormField
                   control={form.control}
@@ -243,6 +309,7 @@ export function ActivityForm({ activityType, open, onOpenChange, onSuccess }: Ac
                 </div>
               )}
 
+              {/* Item (Plantio/Colheita/Insumo) */}
               {showItem && (
                 <FormField
                   control={form.control}
@@ -278,6 +345,99 @@ export function ActivityForm({ activityType, open, onOpenChange, onSuccess }: Ac
                 />
               )}
 
+              {/* Item de Ração (alimentacao_racao) */}
+              {showItemForFeed && (
+                <FormField
+                  control={form.control}
+                  name="itemId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Item de Ração</FormLabel>
+                      <FormControl>
+                        <select
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                          value={field.value || ""}
+                          onChange={(e) => {
+                            const val = e.target.value ? Number(e.target.value) : undefined;
+                            handleItemChange(val);
+                          }}
+                        >
+                          <option value="">Selecione a ração</option>
+                          {items.map((item) => (
+                            <option key={item.id} value={item.id}>
+                              {item.name}
+                            </option>
+                          ))}
+                        </select>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+
+              {/* Stock indicator for feed */}
+              {showItemForFeed && currentStock !== null && (
+                <div className={`rounded-lg border p-3 text-sm flex items-center gap-2 ${
+                  isStockNegative
+                    ? "border-red-200 bg-red-50 text-red-800"
+                    : "border-green-200 bg-green-50 text-green-800"
+                }`}>
+                  <AlertTriangle className={`size-4 shrink-0 ${isStockNegative ? "text-red-500" : "text-green-500"}`} />
+                  <span>
+                    Estoque atual: <strong>{currentStock} {stockUnit}</strong>
+                    {isStockNegative && " (estoque negativo — registre a entrada depois)"}
+                  </span>
+                </div>
+              )}
+
+              {/* Quantity (Colheita/Coleta) */}
+              {showQuantity && (
+                <FormField
+                  control={form.control}
+                  name="quantity"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        {activityType === "coleta_ovos"
+                          ? "Quantidade (unidades)"
+                          : "Quantidade"}
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder={
+                            activityType === "coleta_ovos" ? "Ex: 30" : "Ex: 5.5"
+                          }
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+
+              {/* Quantity for Feed */}
+              {showQuantityForFeed && (
+                <FormField
+                  control={form.control}
+                  name="quantity"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Quantidade (kg)</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Ex: 2.5"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+
+              {/* Planting Status */}
               {showPlantingStatus && (
                 <FormField
                   control={form.control}
@@ -315,24 +475,31 @@ export function ActivityForm({ activityType, open, onOpenChange, onSuccess }: Ac
                 />
               )}
 
-              {showQuantity && (
+              {/* Batch select */}
+              {showBatch && batches.length > 0 && (
                 <FormField
                   control={form.control}
-                  name="quantity"
+                  name="batchId"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>
-                        {activityType === "coleta_ovos"
-                          ? "Quantidade (unidades)"
-                          : "Quantidade"}
+                        {activityType === "movimentacao_piquete" ? "Lote" : "Lote (opcional)"}
                       </FormLabel>
                       <FormControl>
-                        <Input
-                          placeholder={
-                            activityType === "coleta_ovos" ? "Ex: 30" : "Ex: 5.5"
+                        <select
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                          value={field.value || ""}
+                          onChange={(e) =>
+                            field.onChange(e.target.value ? Number(e.target.value) : undefined)
                           }
-                          {...field}
-                        />
+                        >
+                          <option value="">Selecione o lote</option>
+                          {batches.map((batch) => (
+                            <option key={batch.id} value={batch.id}>
+                              {batch.name} ({batch.breed})
+                            </option>
+                          ))}
+                        </select>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -340,6 +507,37 @@ export function ActivityForm({ activityType, open, onOpenChange, onSuccess }: Ac
                 />
               )}
 
+              {/* Bed/Piquete select for movimentacao_piquete */}
+              {showBedForPiquete && beds.length > 0 && (
+                <FormField
+                  control={form.control}
+                  name="bedId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Piquete / Canteiro</FormLabel>
+                      <FormControl>
+                        <select
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                          value={field.value || ""}
+                          onChange={(e) =>
+                            field.onChange(e.target.value ? Number(e.target.value) : undefined)
+                          }
+                        >
+                          <option value="">Selecione o piquete</option>
+                          {beds.map((bed) => (
+                            <option key={bed.id} value={bed.id}>
+                              {bed.name}
+                            </option>
+                          ))}
+                        </select>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+
+              {/* Date */}
               <FormField
                 control={form.control}
                 name="date"
@@ -354,15 +552,22 @@ export function ActivityForm({ activityType, open, onOpenChange, onSuccess }: Ac
                 )}
               />
 
+              {/* Notes */}
               <FormField
                 control={form.control}
                 name="notes"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Observações (opcional)</FormLabel>
+                    <FormLabel>
+                      {activityType === "manejo_ambiencia" ? "Observações (temperatura, cama, sanidade)" : "Observações (opcional)"}
+                    </FormLabel>
                     <FormControl>
                       <Input
-                        placeholder="Ex: Coleta em campo, Perda por geada..."
+                        placeholder={
+                          activityType === "manejo_ambiencia"
+                            ? "Ex: Cama úmida, temperatura 32°C..."
+                            : "Ex: Coleta em campo, Perda por geada..."
+                        }
                         {...field}
                       />
                     </FormControl>

@@ -59,6 +59,9 @@ export const activityTypeEnum = pgEnum("activity_type", [
   "coleta_esterco",
   "aplicacao_insumo",
   "rocagem",
+  "alimentacao_racao",
+  "manejo_ambiencia",
+  "movimentacao_piquete",
 ]);
 
 // Propósito do lote de aves

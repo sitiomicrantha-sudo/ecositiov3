@@ -30,13 +30,18 @@ interface Activity {
     | "limpeza_aviario"
     | "coleta_esterco"
     | "aplicacao_insumo"
-    | "rocagem";
+    | "rocagem"
+    | "alimentacao_racao"
+    | "manejo_ambiencia"
+    | "movimentacao_piquete";
   bedId: number | null;
   itemId: number | null;
+  batchId: number | null;
   quantity: string | null;
   notes: string | null;
   bedName: string | null;
   itemName: string | null;
+  batchName: string | null;
 }
 
 export default function CampoPage() {

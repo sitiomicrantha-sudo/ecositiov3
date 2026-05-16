@@ -22,7 +22,6 @@ import {
   Map,
   Sprout,
   Bird,
-  Package,
   DollarSign,
   Settings,
   ChevronDown,
@@ -41,7 +40,6 @@ const operationsItems = [
 const salesItems = [
   { title: "Estoque / Germoplasma", href: "/estoque", icon: Leaf },
   { title: "Financeiro", href: "/financeiro", icon: Wallet },
-  { title: "Inventário", href: "/inventario", icon: Package },
   { title: "Clientes", href: "/clientes", icon: DollarSign },
 ];
 

@@ -11,6 +11,7 @@ import {
   Calendar,
   MapPin,
   Package,
+  ThermometerSun,
 } from "lucide-react";
 
 interface Activity {
@@ -24,13 +25,18 @@ interface Activity {
     | "limpeza_aviario"
     | "coleta_esterco"
     | "aplicacao_insumo"
-    | "rocagem";
+    | "rocagem"
+    | "alimentacao_racao"
+    | "manejo_ambiencia"
+    | "movimentacao_piquete";
   bedId: number | null;
   itemId: number | null;
+  batchId: number | null;
   quantity: string | null;
   notes: string | null;
   bedName: string | null;
   itemName: string | null;
+  batchName: string | null;
 }
 
 interface ActivityTimelineProps {
@@ -82,6 +88,24 @@ const activityConfig: Record<
     icon: Shovel,
     color: "text-stone-700",
     bgColor: "bg-stone-100",
+  },
+  alimentacao_racao: {
+    label: "Fornecimento de Ração",
+    icon: Wheat,
+    color: "text-red-700",
+    bgColor: "bg-red-100",
+  },
+  manejo_ambiencia: {
+    label: "Manejo de Ambiência",
+    icon: ThermometerSun,
+    color: "text-sky-700",
+    bgColor: "bg-sky-100",
+  },
+  movimentacao_piquete: {
+    label: "Movimentação de Piquete",
+    icon: MapPin,
+    color: "text-lime-700",
+    bgColor: "bg-lime-100",
   },
 };
 
@@ -153,6 +177,12 @@ export function ActivityTimeline({ activities }: ActivityTimelineProps) {
                   <span className="flex items-center gap-1">
                     <Package className="size-3" />
                     {activity.itemName}
+                  </span>
+                )}
+                {activity.batchName && (
+                  <span className="flex items-center gap-1">
+                    <MapPin className="size-3" />
+                    {activity.batchName}
                   </span>
                 )}
                 {activity.quantity && (

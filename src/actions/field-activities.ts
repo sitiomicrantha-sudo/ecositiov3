@@ -7,14 +7,11 @@ import {
   inventoryTransactions,
   inventoryItems,
   beds,
+  poultryBatches,
 } from "@/db/schema";
 import { eq, desc, isNull, or, and } from "drizzle-orm";
 import { z } from "zod";
 import type { ActionResult } from "./topology";
-
-// ============================================================
-// SCHEMAS DE VALIDAÇÃO (Zod)
-// ============================================================
 
 const fieldActivitySchema = z.object({
   category: z.enum(["horta", "aves", "bioinsumos", "geral"], {
@@ -29,11 +26,15 @@ const fieldActivitySchema = z.object({
       "coleta_esterco",
       "aplicacao_insumo",
       "rocagem",
+      "alimentacao_racao",
+      "manejo_ambiencia",
+      "movimentacao_piquete",
     ],
     { message: "Selecione um tipo de atividade" }
   ),
   bedId: z.number().int().positive().optional(),
   itemId: z.number().int().positive().optional(),
+  batchId: z.number().int().positive().optional(),
   quantity: z
     .string()
     .regex(/^\d+(\.\d{1,2})?$/, "Quantidade deve ser um número válido")
@@ -43,10 +44,6 @@ const fieldActivitySchema = z.object({
   plantingStatus: z.enum(["active", "permanent"]).optional(),
 });
 
-// ============================================================
-// MAPS AUXILIARES
-// ============================================================
-
 const activityTypeToCategory: Record<string, "horta" | "aves" | "bioinsumos" | "geral"> = {
   plantio: "horta",
   colheita: "horta",
@@ -55,6 +52,9 @@ const activityTypeToCategory: Record<string, "horta" | "aves" | "bioinsumos" | "
   coleta_ovos: "aves",
   limpeza_aviario: "aves",
   coleta_esterco: "aves",
+  alimentacao_racao: "aves",
+  manejo_ambiencia: "aves",
+  movimentacao_piquete: "aves",
 };
 
 // ============================================================
@@ -110,6 +110,27 @@ export async function registerFieldActivity(
       });
     }
 
+    // Se for alimentacao_racao, cria transação de saída (baixa de estoque real)
+    if (
+      validated.activityType === "alimentacao_racao" &&
+      validated.itemId &&
+      validated.quantity
+    ) {
+      const item = await db.query.inventoryItems.findFirst({
+        where: eq(inventoryItems.id, validated.itemId),
+      });
+
+      await db.insert(inventoryTransactions).values({
+        itemId: validated.itemId,
+        type: "exit",
+        quantity: validated.quantity,
+        date: validated.date,
+        notes: validated.notes
+          ? `Ração fornecida${validated.batchId ? ` - Lote` : ""}${validated.notes ? `: ${validated.notes}` : ""}`
+          : `Ração fornecida${validated.batchId ? ` - Lote` : ""}`,
+      });
+    }
+
     return { success: true, data: newActivity };
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -124,6 +145,7 @@ export async function getFieldActivities(): Promise<
     (typeof fieldActivities.$inferSelect & {
       bedName: string | null;
       itemName: string | null;
+      batchName: string | null;
     })[]
   >
 > {
@@ -132,6 +154,7 @@ export async function getFieldActivities(): Promise<
       with: {
         bed: true,
         item: true,
+        batch: true,
       },
       orderBy: (fieldActivities, { desc }) => [desc(fieldActivities.date)],
     });
@@ -140,6 +163,7 @@ export async function getFieldActivities(): Promise<
       ...a,
       bedName: (a.bed as { name: string } | null)?.name || null,
       itemName: (a.item as { name: string } | null)?.name || null,
+      batchName: (a.batch as { name: string } | null)?.name || null,
     }));
 
     return { success: true, data: enriched };
@@ -253,5 +277,74 @@ export async function findOrCreateEggsItem(): Promise<
     return { success: true, data: created };
   } catch {
     return { success: false, error: "Erro ao buscar/criar item Ovos" };
+  }
+}
+
+export async function getInputItems(): Promise<
+  ActionResult<typeof inventoryItems.$inferSelect[]>
+> {
+  try {
+    const items = await db.query.inventoryItems.findMany({
+      where: eq(inventoryItems.type, "input"),
+      orderBy: (inventoryItems, { asc }) => [asc(inventoryItems.name)],
+    });
+
+    return { success: true, data: items };
+  } catch {
+    return { success: false, error: "Erro ao buscar insumos" };
+  }
+}
+
+export async function getActiveBatchesForField(): Promise<
+  ActionResult<typeof poultryBatches.$inferSelect[]>
+> {
+  try {
+    const batches = await db.query.poultryBatches.findMany({
+      where: eq(poultryBatches.status, "active"),
+      orderBy: (poultryBatches, { asc }) => [asc(poultryBatches.name)],
+    });
+
+    return { success: true, data: batches };
+  } catch {
+    return { success: false, error: "Erro ao buscar lotes ativos" };
+  }
+}
+
+export async function getItemStock(itemId: number): Promise<
+  ActionResult<{ currentStock: number; itemName: string; unit: string }>
+> {
+  try {
+    const item = await db.query.inventoryItems.findFirst({
+      where: eq(inventoryItems.id, itemId),
+    });
+
+    if (!item) {
+      return { success: false, error: "Item não encontrado" };
+    }
+
+    const transactions = await db.query.inventoryTransactions.findMany({
+      where: eq(inventoryTransactions.itemId, itemId),
+    });
+
+    let currentStock = 0;
+    for (const tx of transactions) {
+      const qty = parseFloat(tx.quantity);
+      if (tx.type === "entry") {
+        currentStock += qty;
+      } else {
+        currentStock -= qty;
+      }
+    }
+
+    return {
+      success: true,
+      data: {
+        currentStock,
+        itemName: item.name,
+        unit: item.unit,
+      },
+    };
+  } catch {
+    return { success: false, error: "Erro ao calcular estoque" };
   }
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { Sprout, Wheat, Droplets, Shovel, Egg, Brush, Truck } from "lucide-react";
+import { Sprout, Wheat, Droplets, Shovel, Egg, Brush, Truck, ThermometerSun, MapPin } from "lucide-react";
 
 interface ActivityType {
   id: string;
@@ -71,6 +71,30 @@ const avesActivities: ActivityType[] = [
     bgColor: "bg-yellow-50",
     hoverBg: "hover:bg-yellow-100",
   },
+  {
+    id: "alimentacao_racao",
+    label: "Fornecer Ração",
+    icon: Wheat,
+    color: "text-red-700",
+    bgColor: "bg-red-50",
+    hoverBg: "hover:bg-red-100",
+  },
+  {
+    id: "manejo_ambiencia",
+    label: "Manejo de Ambiência",
+    icon: ThermometerSun,
+    color: "text-sky-700",
+    bgColor: "bg-sky-50",
+    hoverBg: "hover:bg-sky-100",
+  },
+  {
+    id: "movimentacao_piquete",
+    label: "Soltar no Piquete",
+    icon: MapPin,
+    color: "text-lime-700",
+    bgColor: "bg-lime-50",
+    hoverBg: "hover:bg-lime-100",
+  },
 ];
 
 interface ActivityButtonsProps {
@@ -106,7 +130,7 @@ export function ActivityButtons({ onSelectActivity }: ActivityButtonsProps) {
         <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-green-800">
           Manejo das Aves
         </h3>
-        <div className="grid grid-cols-3 gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {avesActivities.map((activity) => (
             <button
               key={activity.id}
