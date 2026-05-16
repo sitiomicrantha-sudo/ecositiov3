@@ -392,3 +392,39 @@ export async function seedDatabase(): Promise<ActionResult<string>> {
     return { success: false, error: `Erro ao executar seed: ${error instanceof Error ? error.message : "Erro desconhecido"}` };
   }
 }
+
+export async function clearDatabase(): Promise<ActionResult<string>> {
+  try {
+    await db.delete(financialTransactions);
+    await db.delete(sales);
+    await db.delete(inventoryTransactions);
+    await db.delete(fieldActivities);
+    await db.delete(plantings);
+    await db.delete(poultryIndividuals);
+    await db.delete(poultryBatches);
+    await db.delete(inventoryItems);
+    await db.delete(customers);
+    await db.delete(beds);
+    await db.delete(fields);
+    await db.delete(glebes);
+    await db.delete(properties);
+
+    await db.execute(`SELECT setval('properties_id_seq', 1, false)`);
+    await db.execute(`SELECT setval('glebes_id_seq', 1, false)`);
+    await db.execute(`SELECT setval('fields_id_seq', 1, false)`);
+    await db.execute(`SELECT setval('beds_id_seq', 1, false)`);
+    await db.execute(`SELECT setval('inventory_items_id_seq', 1, false)`);
+    await db.execute(`SELECT setval('poultry_batches_id_seq', 1, false)`);
+    await db.execute(`SELECT setval('poultry_individuals_id_seq', 1, false)`);
+    await db.execute(`SELECT setval('plantings_id_seq', 1, false)`);
+    await db.execute(`SELECT setval('field_activities_id_seq', 1, false)`);
+    await db.execute(`SELECT setval('customers_id_seq', 1, false)`);
+    await db.execute(`SELECT setval('sales_id_seq', 1, false)`);
+    await db.execute(`SELECT setval('financial_transactions_id_seq', 1, false)`);
+    await db.execute(`SELECT setval('inventory_transactions_id_seq', 1, false)`);
+
+    return { success: true, data: "Banco de dados zerado com sucesso! Todas as tabelas limpas e sequences resetadas." };
+  } catch (error) {
+    return { success: false, error: `Erro ao zerar banco: ${error instanceof Error ? error.message : "Erro desconhecido"}` };
+  }
+}
