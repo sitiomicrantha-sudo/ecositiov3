@@ -16,10 +16,9 @@ type Glebe = typeof glebes.$inferSelect;
 
 interface GlebesTableProps {
   glebesList: Glebe[];
-  propertyId: number;
 }
 
-export function GlebesTable({ glebesList, propertyId }: GlebesTableProps) {
+export function GlebesTable({ glebesList }: GlebesTableProps) {
   if (glebesList.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center rounded-xl border border-dashed bg-white py-16 text-center">
@@ -75,7 +74,7 @@ export function GlebesTable({ glebesList, propertyId }: GlebesTableProps) {
                   variant="ghost"
                   size="sm"
                   onClick={() =>
-                    (window.location.href = `/areas/${propertyId}/glebes/${glebe.id}`)
+                    (window.location.href = `/areas/glebes/${glebe.id}`)
                   }
                   className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
                 >

@@ -17,14 +17,9 @@ type Field = typeof fields.$inferSelect;
 interface FieldsTableProps {
   fieldsList: Field[];
   glebeId: number;
-  propertyId: number;
 }
 
-export function FieldsTable({
-  fieldsList,
-  glebeId,
-  propertyId,
-}: FieldsTableProps) {
+export function FieldsTable({ fieldsList, glebeId }: FieldsTableProps) {
   if (fieldsList.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center rounded-xl border border-dashed bg-white py-16 text-center">
@@ -79,7 +74,7 @@ export function FieldsTable({
                   variant="ghost"
                   size="sm"
                   onClick={() =>
-                    (window.location.href = `/areas/${propertyId}/glebes/${glebeId}/fields/${field.id}`)
+                    (window.location.href = `/areas/glebes/${glebeId}/fields/${field.id}`)
                   }
                   className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
                 >

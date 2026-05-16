@@ -1,28 +1,37 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import Google from "next-auth/providers/google";
 
-// Configuração do Auth.js (NextAuth v5)
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
-    // Provedor Google (OAuth)
-    Google({
-      clientId: process.env.AUTH_GOOGLE_ID!,
-      clientSecret: process.env.AUTH_GOOGLE_SECRET!,
-    }),
-    // Provedor Credentials (email/senha) - pronto para implementação futura
     Credentials({
       credentials: {
         email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
+        password: { label: "Senha", type: "password" },
       },
       authorize: async (credentials) => {
-        // TODO: Implementar autenticação com banco de dados
-        // Por enquanto, retorna null (não autenticado)
         if (!credentials?.email || !credentials?.password) {
           return null;
         }
-        // Implementar verificação de usuário no banco
+
+        const adminEmail = process.env.ADMIN_EMAIL;
+        const adminPassword = process.env.ADMIN_PASSWORD;
+
+        if (!adminEmail || !adminPassword) {
+          console.error("ADMIN_EMAIL ou ADMIN_PASSWORD não configurados no .env.local");
+          return null;
+        }
+
+        if (
+          credentials.email === adminEmail &&
+          credentials.password === adminPassword
+        ) {
+          return {
+            id: "1",
+            name: "Admin Micrantha",
+            email: adminEmail,
+          };
+        }
+
         return null;
       },
     }),
@@ -31,11 +40,22 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     signIn: "/login",
   },
   callbacks: {
-    async session({ session, token }) {
-      if (token.sub && session.user) {
-        session.user.id = token.sub;
+    async jwt({ token, user }) {
+      if (user) {
+        token.id = user.id;
+        token.name = user.name;
+        token.email = user.email;
       }
-      return session;
+      return token;
+    },
+    async session({ session, token }) {
+      return {
+        ...session,
+        user: {
+          ...session.user,
+          id: token.id as string,
+        },
+      };
     },
   },
 });

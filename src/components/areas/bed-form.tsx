@@ -86,10 +86,10 @@ export function BedForm({ fieldId, onSuccess }: BedFormProps) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger onClick={() => setOpen(true)}>
-        <Button className="bg-emerald-600 text-white hover:bg-emerald-700">
+        <div className="inline-flex shrink-0 cursor-pointer items-center justify-center rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700">
           <Plus className="mr-2 size-4" />
           Novo Canteiro
-        </Button>
+        </div>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>

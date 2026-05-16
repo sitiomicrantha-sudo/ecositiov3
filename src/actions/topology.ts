@@ -83,6 +83,34 @@ export async function getProperties(): Promise<
   }
 }
 
+// Garante que a propriedade padrão (ID 1) existe. Cria silenciosamente se não existir.
+export async function ensureDefaultProperty(): Promise<
+  ActionResult<typeof properties.$inferSelect>
+> {
+  try {
+    const existing = await db.query.properties.findFirst({
+      where: eq(properties.id, 1),
+    });
+
+    if (existing) {
+      return { success: true, data: existing };
+    }
+
+    const [newProperty] = await db
+      .insert(properties)
+      .values({
+        name: "Sítio Micrantha",
+        totalArea: "0",
+        unit: "m²",
+      })
+      .returning();
+
+    return { success: true, data: newProperty };
+  } catch {
+    return { success: false, error: "Erro ao garantir propriedade padrão" };
+  }
+}
+
 export async function getPropertyById(
   id: number
 ): Promise<ActionResult<typeof properties.$inferSelect>> {

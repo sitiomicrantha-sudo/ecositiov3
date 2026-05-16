@@ -7,7 +7,7 @@ import { BreadcrumbNav } from "@/components/layout/breadcrumb-nav";
 import { BedsTable } from "@/components/areas/beds-table";
 import { BedForm } from "@/components/areas/bed-form";
 import {
-  getPropertyById,
+  ensureDefaultProperty,
   getGlebeById,
   getFieldById,
   getBedsByField,
@@ -19,7 +19,6 @@ type Bed = typeof beds.$inferSelect;
 
 export default function FieldDetailPage() {
   const params = useParams();
-  const propertyId = Number(params.propertyId);
   const glebeId = Number(params.glebeId);
   const fieldId = Number(params.fieldId);
 
@@ -34,7 +33,7 @@ export default function FieldDetailPage() {
     try {
       const [propertyResult, glebeResult, fieldResult, bedsResult] =
         await Promise.all([
-          getPropertyById(propertyId),
+          ensureDefaultProperty(),
           getGlebeById(glebeId),
           getFieldById(fieldId),
           getBedsByField(fieldId),
@@ -64,7 +63,7 @@ export default function FieldDetailPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [propertyId, glebeId, fieldId]);
+  }, [glebeId, fieldId]);
 
   useEffect(() => {
     loadData();
@@ -102,8 +101,10 @@ export default function FieldDetailPage() {
       <BreadcrumbNav
         items={[
           { label: "Áreas", href: "/areas" },
-          { label: propertyName, href: `/areas/${propertyId}` },
-          { label: glebeName, href: `/areas/${propertyId}/glebes/${glebeId}` },
+          { label: propertyName, href: "/areas" },
+          { label: "Glebas", href: "/areas" },
+          { label: glebeName, href: `/areas/glebes/${glebeId}` },
+          { label: "Talhões", href: `/areas/glebes/${glebeId}` },
           { label: field.name },
         ]}
       />

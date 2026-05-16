@@ -4,47 +4,53 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { toast } from "sonner";
 import { BreadcrumbNav } from "@/components/layout/breadcrumb-nav";
-import { GlebesTable } from "@/components/areas/glebes-table";
-import { GlebeForm } from "@/components/areas/glebe-form";
-import { getPropertyById, getGlebesByProperty } from "@/actions/topology";
-import type { properties, glebes } from "@/db/schema";
+import { FieldsTable } from "@/components/areas/fields-table";
+import { FieldForm } from "@/components/areas/field-form";
+import { ensureDefaultProperty, getGlebeById, getFieldsByGlebe } from "@/actions/topology";
+import type { glebes, fields } from "@/db/schema";
 
-type Property = typeof properties.$inferSelect;
 type Glebe = typeof glebes.$inferSelect;
+type Field = typeof fields.$inferSelect;
 
-export default function PropertyDetailPage() {
+export default function GlebeDetailPage() {
   const params = useParams();
-  const propertyId = Number(params.propertyId);
+  const glebeId = Number(params.glebeId);
 
-  const [property, setProperty] = useState<Property | null>(null);
-  const [glebesList, setGlebesList] = useState<Glebe[]>([]);
+  const [glebe, setGlebe] = useState<Glebe | null>(null);
+  const [propertyName, setPropertyName] = useState<string>("");
+  const [fieldsList, setFieldsList] = useState<Field[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [propertyResult, glebesResult] = await Promise.all([
-        getPropertyById(propertyId),
-        getGlebesByProperty(propertyId),
+      const [propertyResult, glebeResult, fieldsResult] = await Promise.all([
+        ensureDefaultProperty(),
+        getGlebeById(glebeId),
+        getFieldsByGlebe(glebeId),
       ]);
 
       if (propertyResult.success) {
-        setProperty(propertyResult.data);
-      } else {
-        toast.error(propertyResult.error);
+        setPropertyName(propertyResult.data.name);
       }
 
-      if (glebesResult.success) {
-        setGlebesList(glebesResult.data);
+      if (glebeResult.success) {
+        setGlebe(glebeResult.data);
       } else {
-        toast.error(glebesResult.error);
+        toast.error(glebeResult.error);
+      }
+
+      if (fieldsResult.success) {
+        setFieldsList(fieldsResult.data);
+      } else {
+        toast.error(fieldsResult.error);
       }
     } catch {
-      toast.error("Erro ao carregar dados da propriedade");
+      toast.error("Erro ao carregar dados da gleba");
     } finally {
       setIsLoading(false);
     }
-  }, [propertyId]);
+  }, [glebeId]);
 
   useEffect(() => {
     loadData();
@@ -64,14 +70,14 @@ export default function PropertyDetailPage() {
     );
   }
 
-  if (!property) {
+  if (!glebe) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
         <h2 className="text-xl font-semibold text-gray-900">
-          Propriedade não encontrada
+          Gleba não encontrada
         </h2>
         <p className="mt-2 text-sm text-gray-500">
-          A propriedade solicitada não existe ou foi removida.
+          A gleba solicitada não existe ou foi removida.
         </p>
       </div>
     );
@@ -82,7 +88,9 @@ export default function PropertyDetailPage() {
       <BreadcrumbNav
         items={[
           { label: "Áreas", href: "/areas" },
-          { label: property.name },
+          { label: propertyName, href: "/areas" },
+          { label: "Glebas", href: "/areas" },
+          { label: glebe.name },
         ]}
       />
 
@@ -90,25 +98,29 @@ export default function PropertyDetailPage() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-2xl font-bold tracking-tight text-gray-900">
-              {property.name}
+              {glebe.name}
             </h2>
             <p className="mt-1 text-sm text-gray-500">
-              Área total:{" "}
+              Área:{" "}
               <span className="font-medium text-gray-700">
-                {Number(property.totalArea).toLocaleString("pt-BR")}{" "}
-                {property.unit}
+                {Number(glebe.area).toLocaleString("pt-BR")} m²
               </span>
+              {glebe.description && (
+                <span className="ml-2 text-gray-400">
+                  • {glebe.description}
+                </span>
+              )}
             </p>
           </div>
-          <GlebeForm propertyId={propertyId} onSuccess={loadData} />
+          <FieldForm glebeId={glebeId} onSuccess={loadData} />
         </div>
       </div>
 
       <div>
         <h3 className="mb-4 text-lg font-semibold text-gray-900">
-          Glebas ({glebesList.length})
+          Talhões ({fieldsList.length})
         </h3>
-        <GlebesTable glebesList={glebesList} propertyId={propertyId} />
+        <FieldsTable fieldsList={fieldsList} glebeId={glebeId} />
       </div>
     </div>
   );
