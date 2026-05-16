@@ -61,6 +61,31 @@ export const activityTypeEnum = pgEnum("activity_type", [
   "rocagem",
 ]);
 
+// Propósito do lote de aves
+export const poultryPurposeEnum = pgEnum("poultry_purpose", [
+  "postura",
+  "corte",
+  "dupla_aptidao",
+  "matriz_genetica",
+]);
+
+// Status do lote
+export const batchStatusEnum = pgEnum("batch_status", [
+  "active",
+  "retired",
+  "sold",
+]);
+
+// Gênero do indivíduo
+export const genderEnum = pgEnum("gender", ["macho", "femea"]);
+
+// Status do indivíduo
+export const individualStatusEnum = pgEnum("individual_status", [
+  "ativo",
+  "descartado",
+  "morto",
+]);
+
 // ============================================================
 // MÓDULO 1: ESTRUTURA TOPOLÓGICA
 // Hierarquia: Propriedade > Gleba > Talhão > Canteiro
@@ -172,9 +197,60 @@ export const fieldActivities = pgTable("field_activities", {
   itemId: integer("item_id").references(() => inventoryItems.id, {
     onDelete: "set null",
   }),
+  batchId: integer("batch_id").references(() => poultryBatches.id, {
+    onDelete: "set null",
+  }),
+  individualId: integer("individual_id").references(() => poultryIndividuals.id, {
+    onDelete: "set null",
+  }),
   quantity: decimal("quantity", { precision: 10, scale: 2 }),
   notes: text("notes"),
 });
+
+// ============================================================
+// MÓDULO 5: AVICULTURA & GESTÃO GENÉTICA
+// ============================================================
+
+// Tabela: Lotes de Aves (Plantel Comercial)
+export const poultryBatches = pgTable("poultry_batches", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  breed: varchar("breed", { length: 255 }).notNull(),
+  purpose: poultryPurposeEnum("purpose").notNull(),
+  initialQuantity: integer("initial_quantity").notNull(),
+  currentQuantity: integer("current_quantity").notNull(),
+  hatchDate: timestamp("hatch_date").notNull(),
+  status: batchStatusEnum("status").notNull().default("active"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Tabela: Indivíduos Reprodutores (Pedigree/Elite Genética)
+// Self-referencing: fatherId/motherId -> mesma tabela
+// Variável auxiliar para quebrar referência circular do TypeScript
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _pIndRef: any;
+
+export const poultryIndividuals = pgTable("poultry_individuals", {
+  id: serial("id").primaryKey(),
+  ringId: varchar("ring_id", { length: 50 }).notNull().unique(),
+  name: varchar("name", { length: 255 }),
+  gender: genderEnum("gender").notNull(),
+  fatherId: integer("father_id").references(
+    () => _pIndRef?.id,
+    { onDelete: "set null" }
+  ),
+  motherId: integer("mother_id").references(
+    () => _pIndRef?.id,
+    { onDelete: "set null" }
+  ),
+  batchId: integer("batch_id").references(() => poultryBatches.id, {
+    onDelete: "set null",
+  }),
+  status: individualStatusEnum("status").notNull().default("ativo"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+_pIndRef = poultryIndividuals;
 
 // ============================================================
 // RELACIONAMENTOS (Drizzle Relations)
@@ -246,7 +322,7 @@ export const plantingsRelations = relations(plantings, ({ one }) => ({
   }),
 }));
 
-// Atividade pertence a um canteiro e a um item (opcionais)
+// Atividade pertence a um canteiro, item, lote e indivíduo (opcionais)
 export const fieldActivitiesRelations = relations(
   fieldActivities,
   ({ one }) => ({
@@ -257,6 +333,41 @@ export const fieldActivitiesRelations = relations(
     item: one(inventoryItems, {
       fields: [fieldActivities.itemId],
       references: [inventoryItems.id],
+    }),
+    batch: one(poultryBatches, {
+      fields: [fieldActivities.batchId],
+      references: [poultryBatches.id],
+    }),
+    individual: one(poultryIndividuals, {
+      fields: [fieldActivities.individualId],
+      references: [poultryIndividuals.id],
+    }),
+  })
+);
+
+// Lote tem muitos indivíduos
+export const poultryBatchesRelations = relations(
+  poultryBatches,
+  ({ many }) => ({
+    individuals: many(poultryIndividuals),
+  })
+);
+
+// Indivíduo pertence a um lote e tem pai/mãe (auto-referência)
+export const poultryIndividualsRelations = relations(
+  poultryIndividuals,
+  ({ one }) => ({
+    batch: one(poultryBatches, {
+      fields: [poultryIndividuals.batchId],
+      references: [poultryBatches.id],
+    }),
+    father: one(poultryIndividuals, {
+      fields: [poultryIndividuals.fatherId],
+      references: [poultryIndividuals.id],
+    }),
+    mother: one(poultryIndividuals, {
+      fields: [poultryIndividuals.motherId],
+      references: [poultryIndividuals.id],
     }),
   })
 );

@@ -130,8 +130,8 @@ export async function getInventoryTransactions(): Promise<
 
     const enriched = transactions.map((tx) => ({
       ...tx,
-      itemName: tx.item.name,
-      itemUnit: tx.item.unit,
+      itemName: (tx.item as { name: string; unit: string }).name,
+      itemUnit: (tx.item as { name: string; unit: string }).unit,
     }));
 
     return { success: true, data: enriched };

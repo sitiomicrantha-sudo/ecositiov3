@@ -138,8 +138,8 @@ export async function getFieldActivities(): Promise<
 
     const enriched = activities.map((a) => ({
       ...a,
-      bedName: a.bed?.name || null,
-      itemName: a.item?.name || null,
+      bedName: (a.bed as { name: string } | null)?.name || null,
+      itemName: (a.item as { name: string } | null)?.name || null,
     }));
 
     return { success: true, data: enriched };
@@ -185,7 +185,7 @@ export async function getBedsWithPlantingStatus(): Promise<
         ...bed,
         hasActivePlanting: !!planting,
         plantingStatus: planting?.status || null,
-        plantingItemName: planting?.item.name || null,
+        plantingItemName: (planting?.item as { name: string } | null)?.name || null,
       };
     });
 
