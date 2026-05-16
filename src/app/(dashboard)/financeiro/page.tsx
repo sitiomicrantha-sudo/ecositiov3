@@ -14,6 +14,7 @@ import {
   confirmPayment,
 } from "@/actions/finance";
 import { toast } from "sonner";
+import { SeedButton } from "@/components/finance/seed-button";
 
 interface Transaction {
   id: number;
@@ -142,6 +143,10 @@ export default function FinanceiroPage() {
           </Tabs>
         </>
       )}
+
+      <div className="pt-8 pb-4 flex justify-end">
+        <SeedButton />
+      </div>
     </div>
   );
 }
