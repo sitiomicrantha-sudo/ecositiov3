@@ -33,12 +33,6 @@ export default function AreasPage() {
     loadProperties();
   }, [loadProperties]);
 
-  function handleViewGlebes(propertyId: number, propertyName: string) {
-    toast.info(`Glebas de "${propertyName}" - Em breve!`, {
-      description: "Módulo de glebas será implementado na próxima etapa.",
-    });
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -61,10 +55,7 @@ export default function AreasPage() {
           <div className="h-16 animate-pulse rounded-xl bg-gray-200" />
         </div>
       ) : (
-        <PropertiesTable
-          properties={propertiesList}
-          onViewGlebes={handleViewGlebes}
-        />
+        <PropertiesTable properties={propertiesList} />
       )}
     </div>
   );

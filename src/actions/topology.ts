@@ -83,6 +83,60 @@ export async function getProperties(): Promise<
   }
 }
 
+export async function getPropertyById(
+  id: number
+): Promise<ActionResult<typeof properties.$inferSelect>> {
+  try {
+    const property = await db.query.properties.findFirst({
+      where: eq(properties.id, id),
+    });
+
+    if (!property) {
+      return { success: false, error: "Propriedade não encontrada" };
+    }
+
+    return { success: true, data: property };
+  } catch {
+    return { success: false, error: "Erro ao buscar propriedade" };
+  }
+}
+
+export async function getGlebeById(
+  id: number
+): Promise<ActionResult<typeof glebes.$inferSelect>> {
+  try {
+    const glebe = await db.query.glebes.findFirst({
+      where: eq(glebes.id, id),
+    });
+
+    if (!glebe) {
+      return { success: false, error: "Gleba não encontrada" };
+    }
+
+    return { success: true, data: glebe };
+  } catch {
+    return { success: false, error: "Erro ao buscar gleba" };
+  }
+}
+
+export async function getFieldById(
+  id: number
+): Promise<ActionResult<typeof fields.$inferSelect>> {
+  try {
+    const field = await db.query.fields.findFirst({
+      where: eq(fields.id, id),
+    });
+
+    if (!field) {
+      return { success: false, error: "Talhão não encontrado" };
+    }
+
+    return { success: true, data: field };
+  } catch {
+    return { success: false, error: "Erro ao buscar talhão" };
+  }
+}
+
 // ============================================================
 // GLEBES (Glebas)
 // ============================================================

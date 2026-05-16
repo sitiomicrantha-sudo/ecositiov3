@@ -10,25 +10,30 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { MapPin, ArrowRight } from "lucide-react";
-import type { properties } from "@/db/schema";
+import type { fields } from "@/db/schema";
 
-type Property = typeof properties.$inferSelect;
+type Field = typeof fields.$inferSelect;
 
-interface PropertiesTableProps {
-  properties: Property[];
+interface FieldsTableProps {
+  fieldsList: Field[];
+  glebeId: number;
+  propertyId: number;
 }
 
-export function PropertiesTable({ properties: propertiesList }: PropertiesTableProps) {
-  if (propertiesList.length === 0) {
+export function FieldsTable({
+  fieldsList,
+  glebeId,
+  propertyId,
+}: FieldsTableProps) {
+  if (fieldsList.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center rounded-xl border border-dashed bg-white py-16 text-center">
         <MapPin className="mb-4 size-12 text-gray-300" />
         <h3 className="text-lg font-medium text-gray-900">
-          Nenhuma propriedade cadastrada
+          Nenhum talhão cadastrado
         </h3>
         <p className="mt-1 text-sm text-gray-500">
-          Clique em &quot;Nova Propriedade&quot; para começar a mapear suas
-          áreas.
+          Clique em &quot;Novo Talhão&quot; para dividir esta gleba em talhões.
         </p>
       </div>
     );
@@ -41,10 +46,10 @@ export function PropertiesTable({ properties: propertiesList }: PropertiesTableP
           <TableRow className="bg-gray-50">
             <TableHead className="font-semibold text-gray-700">Nome</TableHead>
             <TableHead className="font-semibold text-gray-700">
-              Área Total
+              Área (m²)
             </TableHead>
             <TableHead className="font-semibold text-gray-700">
-              Unidade
+              Descrição
             </TableHead>
             <TableHead className="font-semibold text-gray-700">
               Criado em
@@ -55,28 +60,30 @@ export function PropertiesTable({ properties: propertiesList }: PropertiesTableP
           </TableRow>
         </TableHeader>
         <TableBody>
-          {propertiesList.map((property) => (
-            <TableRow key={property.id} className="hover:bg-gray-50">
+          {fieldsList.map((field) => (
+            <TableRow key={field.id} className="hover:bg-gray-50">
               <TableCell className="font-medium text-gray-900">
-                {property.name}
+                {field.name}
               </TableCell>
               <TableCell className="text-gray-600">
-                {Number(property.totalArea).toLocaleString("pt-BR")}
+                {Number(field.area).toLocaleString("pt-BR")}
               </TableCell>
-              <TableCell className="text-gray-600">{property.unit}</TableCell>
+              <TableCell className="max-w-xs truncate text-gray-500">
+                {field.description || "—"}
+              </TableCell>
               <TableCell className="text-gray-500">
-                {new Date(property.createdAt).toLocaleDateString("pt-BR")}
+                {new Date(field.createdAt).toLocaleDateString("pt-BR")}
               </TableCell>
               <TableCell className="text-right">
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() =>
-                    (window.location.href = `/areas/${property.id}`)
+                    (window.location.href = `/areas/${propertyId}/glebes/${glebeId}/fields/${field.id}`)
                   }
                   className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
                 >
-                  Ver Glebas
+                  Ver Canteiros
                   <ArrowRight className="ml-1 size-4" />
                 </Button>
               </TableCell>
