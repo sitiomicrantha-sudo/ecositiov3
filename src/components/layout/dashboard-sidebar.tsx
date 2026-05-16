@@ -50,7 +50,19 @@ export function DashboardSidebar() {
   const router = useRouter();
 
   return (
-    <Sidebar className="bg-green-900 border-r-green-800">
+    <Sidebar
+      className="bg-green-900 border-r-green-800"
+      style={
+        {
+          "--sidebar": "#166534",
+          "--sidebar-foreground": "#d1fae5",
+          "--sidebar-accent": "#15803d",
+          "--sidebar-accent-foreground": "#ffffff",
+          "--sidebar-border": "#14532d",
+          "--sidebar-ring": "#10b981",
+        } as React.CSSProperties
+      }
+    >
       <SidebarHeader className="border-b border-green-800 px-4 py-4">
         <button
           onClick={() => router.push("/")}
@@ -72,7 +84,7 @@ export function DashboardSidebar() {
                 <SidebarMenuButton
                   isActive={pathname === "/"}
                   onClick={() => router.push("/")}
-                  className="text-green-100 hover:bg-green-800 hover:text-white data-[active=true]:bg-green-800 data-[active=true]:text-emerald-400"
+                  className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground"
                 >
                   <Home className="size-4" />
                   <span>Visão Geral</span>
@@ -94,7 +106,7 @@ export function DashboardSidebar() {
                   <SidebarMenuButton
                     isActive={pathname === item.href}
                     onClick={() => router.push(item.href)}
-                    className="text-green-100 hover:bg-green-800 hover:text-white data-[active=true]:bg-green-800 data-[active=true]:text-emerald-400"
+                    className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground"
                   >
                     <item.icon className="size-4" />
                     <span>{item.title}</span>
@@ -117,7 +129,7 @@ export function DashboardSidebar() {
                   <SidebarMenuButton
                     isActive={pathname === item.href}
                     onClick={() => router.push(item.href)}
-                    className="text-green-100 hover:bg-green-800 hover:text-white data-[active=true]:bg-green-800 data-[active=true]:text-emerald-400"
+                    className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground"
                   >
                     <item.icon className="size-4" />
                     <span>{item.title}</span>
@@ -140,7 +152,7 @@ export function DashboardSidebar() {
                   <SidebarMenuButton
                     isActive={pathname === item.href}
                     onClick={() => router.push(item.href)}
-                    className="text-green-100 hover:bg-green-800 hover:text-white data-[active=true]:bg-green-800 data-[active=true]:text-emerald-400"
+                    className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground"
                   >
                     <item.icon className="size-4" />
                     <span>{item.title}</span>
@@ -155,7 +167,7 @@ export function DashboardSidebar() {
       <SidebarFooter className="border-t border-green-800">
         <DropdownMenu>
           <DropdownMenuTrigger>
-            <button className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-green-100 hover:bg-green-800">
+            <div className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-green-100 hover:bg-green-800">
               <div className="flex size-8 items-center justify-center rounded-full bg-green-700 text-xs font-medium text-white">
                 A
               </div>
@@ -166,7 +178,7 @@ export function DashboardSidebar() {
                 </p>
               </div>
               <ChevronDown className="size-4 text-green-300" />
-            </button>
+            </div>
           </DropdownMenuTrigger>
           <DropdownMenuContent side="top" className="w-56">
             <DropdownMenuItem>Perfil</DropdownMenuItem>
