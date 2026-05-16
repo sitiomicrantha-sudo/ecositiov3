@@ -19,6 +19,7 @@ interface Transaction {
   description: string;
   orderId: number | null;
   orderCustomerName: string | null;
+  costCenterName: string | null;
 }
 
 interface TransactionsTableProps {
@@ -64,9 +65,12 @@ export function TransactionsTable({ transactions }: TransactionsTableProps) {
               <TableHead className="font-semibold text-gray-700">Data</TableHead>
               <TableHead className="font-semibold text-gray-700">Tipo</TableHead>
               <TableHead className="hidden font-semibold text-gray-700 md:table-cell">
-                Categoria
+                Centro
               </TableHead>
               <TableHead className="hidden font-semibold text-gray-700 lg:table-cell">
+                Categoria
+              </TableHead>
+              <TableHead className="hidden font-semibold text-gray-700 xl:table-cell">
                 Descrição
               </TableHead>
               <TableHead className="font-semibold text-gray-700 text-right">
@@ -100,11 +104,16 @@ export function TransactionsTable({ transactions }: TransactionsTableProps) {
                     </span>
                   </TableCell>
                   <TableCell className="hidden text-gray-600 md:table-cell">
+                    <span className="text-xs font-medium rounded-full bg-gray-100 px-2 py-0.5">
+                      {tx.costCenterName || "—"}
+                    </span>
+                  </TableCell>
+                  <TableCell className="hidden text-gray-600 lg:table-cell">
                     <span className="text-sm">
                       {categoryLabels[tx.category] || tx.category}
                     </span>
                   </TableCell>
-                  <TableCell className="hidden max-w-xs truncate text-gray-500 lg:table-cell">
+                  <TableCell className="hidden max-w-xs truncate text-gray-500 xl:table-cell">
                     {tx.description}
                   </TableCell>
                   <TableCell

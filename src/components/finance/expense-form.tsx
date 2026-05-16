@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -25,6 +25,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Plus, Loader2 } from "lucide-react";
 import { registerExpense } from "@/actions/finance";
+import { getActiveCostCenters } from "@/actions/cost-centers";
 
 const expenseFormSchema = z.object({
   category: z.enum([
@@ -41,6 +42,7 @@ const expenseFormSchema = z.object({
     .regex(/^\d+(\.\d{1,2})?$/, "Valor deve ser um número válido"),
   description: z.string().min(1, "Descrição é obrigatória").max(255),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data deve estar no formato YYYY-MM-DD"),
+  costCenterId: z.number().int().positive("Selecione um centro de custo"),
 });
 
 type ExpenseFormValues = z.infer<typeof expenseFormSchema>;
@@ -61,6 +63,7 @@ const categoryLabels: Record<string, string> = {
 export function ExpenseForm({ onSuccess }: ExpenseFormProps) {
   const [open, setOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [costCenters, setCostCenters] = useState<{ id: number; name: string; description: string | null }[]>([]);
 
   const today = new Date().toISOString().split("T")[0];
 
@@ -71,8 +74,19 @@ export function ExpenseForm({ onSuccess }: ExpenseFormProps) {
       amount: "",
       description: "",
       date: today,
+      costCenterId: 0,
     },
   });
+
+  useEffect(() => {
+    if (open) {
+      getActiveCostCenters().then((result) => {
+        if (result.success && result.data) {
+          setCostCenters(result.data);
+        }
+      });
+    }
+  }, [open]);
 
   async function onSubmit(values: ExpenseFormValues) {
     setIsSubmitting(true);
@@ -113,6 +127,32 @@ export function ExpenseForm({ onSuccess }: ExpenseFormProps) {
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="costCenterId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Centro de Custo</FormLabel>
+                  <FormControl>
+                    <select
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      {...field}
+                      onChange={(e) => field.onChange(parseInt(e.target.value, 10))}
+                      value={field.value || ""}
+                    >
+                      <option value="">Selecione...</option>
+                      {costCenters.map((cc) => (
+                        <option key={cc.id} value={cc.id}>
+                          {cc.name}
+                        </option>
+                      ))}
+                    </select>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             <FormField
               control={form.control}
               name="category"

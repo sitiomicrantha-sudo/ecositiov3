@@ -8,9 +8,21 @@ import {
   inventoryTransactions,
   inventoryItems,
   customers,
+  costCenters,
 } from "@/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import type { ActionResult } from "./topology";
+import { calculateOrderCostCenterSplit } from "@/lib/cost-center";
+import { ensureDefaultCostCenters } from "./cost-centers";
+
+async function getFallbackCostCenterId(): Promise<number> {
+  const [fallback] = await db
+    .select({ id: costCenters.id })
+    .from(costCenters)
+    .where(eq(costCenters.name, "Infraestrutura Geral"))
+    .limit(1);
+  return fallback?.id ?? 1;
+}
 
 export async function createPOSOrder(data: {
   customerId?: number | null;
@@ -21,6 +33,8 @@ export async function createPOSOrder(data: {
   deliveryFee?: string;
 }): Promise<ActionResult<typeof orders.$inferSelect>> {
   try {
+    await ensureDefaultCostCenters();
+
     const deliveryFee = data.deliveryFee || "0.00";
 
     let subtotal = 0;
@@ -64,14 +78,38 @@ export async function createPOSOrder(data: {
         ? (await db.query.customers.findFirst({ where: eq(customers.id, data.customerId!) }))?.name
         : data.customerName || "Cliente";
 
-      await db.insert(financialTransactions).values({
-        date: new Date(),
-        type: "revenue",
-        category: "venda_producao",
-        amount: total,
-        description: `Pedido #${newOrder.id} - ${customerLabel}`,
-        orderId: newOrder.id,
-      });
+      const itemsWithCostCenter = await Promise.all(
+        itemTotals.map(async (item) => {
+          const invItem = await db.query.inventoryItems.findFirst({
+            where: eq(inventoryItems.id, item.itemId),
+          });
+          return {
+            itemId: item.itemId,
+            totalPrice: parseFloat(item.totalPrice),
+            costCenterId: invItem?.costCenterId ?? null,
+          };
+        })
+      );
+
+      const fallbackId = await getFallbackCostCenterId();
+      const splits = calculateOrderCostCenterSplit(itemsWithCostCenter, parseFloat(deliveryFee), fallbackId);
+
+      for (const split of splits) {
+        const center = await db.query.costCenters.findFirst({
+          where: eq(costCenters.id, split.costCenterId),
+        });
+        const centerName = center?.name || "Geral";
+
+        await db.insert(financialTransactions).values({
+          date: new Date(),
+          type: "revenue",
+          category: "venda_producao",
+          amount: split.total.toFixed(2),
+          description: `Pedido #${newOrder.id} - Receita ${centerName} - ${customerLabel}`,
+          orderId: newOrder.id,
+          costCenterId: split.costCenterId,
+        });
+      }
 
       for (const item of itemTotals) {
         const invItem = await db.query.inventoryItems.findFirst({
@@ -98,6 +136,8 @@ export async function confirmOrderPayment(
   orderId: number
 ): Promise<ActionResult<typeof orders.$inferSelect>> {
   try {
+    await ensureDefaultCostCenters();
+
     const order = await db.query.orders.findFirst({
       where: eq(orders.id, orderId),
       with: {
@@ -127,16 +167,33 @@ export async function confirmOrderPayment(
       ? (await db.query.customers.findFirst({ where: eq(customers.id, order.customerId) }))?.name
       : order.customerName || "Cliente";
 
-    await db.insert(financialTransactions).values({
-      date: order.date,
-      type: "revenue",
-      category: "venda_producao",
-      amount: order.total,
-      description: `Pedido #${orderId} - ${customerLabel} (pagamento confirmado)`,
-      orderId,
-    });
+    const itemsWithCostCenter = (order.items as any[]).map((oi: any) => ({
+      itemId: oi.itemId,
+      totalPrice: parseFloat(oi.totalPrice),
+      costCenterId: oi.item?.costCenterId ?? null,
+    }));
 
-    for (const oi of order.items) {
+    const fallbackId = await getFallbackCostCenterId();
+    const splits = calculateOrderCostCenterSplit(itemsWithCostCenter, parseFloat(order.deliveryFee), fallbackId);
+
+    for (const split of splits) {
+      const center = await db.query.costCenters.findFirst({
+        where: eq(costCenters.id, split.costCenterId),
+      });
+      const centerName = center?.name || "Geral";
+
+      await db.insert(financialTransactions).values({
+        date: order.date,
+        type: "revenue",
+        category: "venda_producao",
+        amount: split.total.toFixed(2),
+        description: `Pedido #${orderId} - Receita ${centerName} - ${customerLabel} (pagamento confirmado)`,
+        orderId,
+        costCenterId: split.costCenterId,
+      });
+    }
+
+    for (const oi of order.items as any[]) {
       await db.insert(inventoryTransactions).values({
         itemId: oi.itemId,
         type: "exit",

@@ -8,6 +8,7 @@ import {
   getRecentActivities,
   getLowStockAlerts,
   getPendingOrders,
+  getCostCenterPerformance,
 } from "@/actions/dashboard";
 import { DbTools } from "@/components/finance/db-tools";
 import {
@@ -21,11 +22,23 @@ import {
   Package,
   ShoppingCart,
   Wallet,
+  Leaf,
+  Building2,
 } from "lucide-react";
 
 function formatCurrency(value: string): string {
   const num = parseFloat(value);
   return num.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function formatCurrencyNum(value: number): string {
+  return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function getCostCenterIcon(name: string) {
+  if (name.toLowerCase().includes("vegetal") || name.toLowerCase().includes("horta")) return Leaf;
+  if (name.toLowerCase().includes("avicul") || name.toLowerCase().includes("ave")) return Bird;
+  return Building2;
 }
 
 function timeAgo(date: Date): string {
@@ -105,6 +118,15 @@ interface PendingOrder {
   itemCount: number;
 }
 
+interface CostCenterPerf {
+  id: number;
+  name: string;
+  description: string | null;
+  revenue: number;
+  expense: number;
+  balance: number;
+}
+
 export default function DashboardPage() {
   const [balance, setBalance] = useState("0");
   const [monthRevenue, setMonthRevenue] = useState("0");
@@ -116,6 +138,7 @@ export default function DashboardPage() {
   const [recentActivities, setRecentActivities] = useState<ActivityItem[]>([]);
   const [lowStockItems, setLowStockItems] = useState<StockItem[]>([]);
   const [pendingOrders, setPendingOrders] = useState<PendingOrder[]>([]);
+  const [costCenterPerf, setCostCenterPerf] = useState<CostCenterPerf[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
@@ -128,6 +151,7 @@ export default function DashboardPage() {
       activitiesResult,
       stockResult,
       pendingResult,
+      costCenterResult,
     ] = await Promise.all([
       getFinancialOverview(),
       getOperationalOverview(),
@@ -135,6 +159,7 @@ export default function DashboardPage() {
       getRecentActivities(),
       getLowStockAlerts(),
       getPendingOrders(),
+      getCostCenterPerformance(),
     ]);
 
     if (financialResult.success) {
@@ -163,6 +188,10 @@ export default function DashboardPage() {
 
     if (pendingResult.success) {
       setPendingOrders(pendingResult.data);
+    }
+
+    if (costCenterResult.success) {
+      setCostCenterPerf(costCenterResult.data);
     }
 
     setLoading(false);
@@ -380,6 +409,80 @@ export default function DashboardPage() {
               <p className="text-xs text-gray-400">Nenhum alerta no momento</p>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* ROW 2.5: Desempenho por Setor */}
+      <div className="rounded-xl border bg-white p-5 shadow-sm">
+        <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-1.5">
+          <DollarSign className="size-4 text-gray-500" />
+          Desempenho por Setor — {new Date().toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}
+        </h3>
+
+        <div className="grid gap-4 md:grid-cols-3">
+          {costCenterPerf.map((cc) => {
+            const Icon = getCostCenterIcon(cc.name);
+            const isProfit = cc.balance >= 0;
+            const hasActivity = cc.revenue > 0 || cc.expense > 0;
+
+            return (
+              <div key={cc.id} className="rounded-lg border border-gray-100 bg-gray-50/50 p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className={`flex size-8 items-center justify-center rounded-lg ${
+                    cc.name.toLowerCase().includes("vegetal") ? "bg-green-100 text-green-700" :
+                    cc.name.toLowerCase().includes("avicul") ? "bg-amber-100 text-amber-700" :
+                    "bg-gray-200 text-gray-600"
+                  }`}>
+                    <Icon className="size-4" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">{cc.name}</p>
+                    {cc.description && (
+                      <p className="text-xs text-gray-500">{cc.description}</p>
+                    )}
+                  </div>
+                </div>
+
+                {hasActivity ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-emerald-700 font-medium flex items-center gap-1">
+                        <TrendingUp className="size-3" />
+                        Receita
+                      </span>
+                      <span className="font-semibold text-gray-900">
+                        {formatCurrencyNum(cc.revenue)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-red-700 font-medium flex items-center gap-1">
+                        <TrendingDown className="size-3" />
+                        Despesa
+                      </span>
+                      <span className="font-semibold text-gray-900">
+                        {formatCurrencyNum(cc.expense)}
+                      </span>
+                    </div>
+                    <div className="pt-2 border-t border-gray-200">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-gray-500">Saldo</span>
+                        <span className={`text-sm font-bold ${isProfit ? "text-emerald-600" : "text-red-600"}`}>
+                          {formatCurrencyNum(cc.balance)}
+                        </span>
+                      </div>
+                    </div>
+                    <div className={`text-xs font-medium text-center py-1 rounded ${
+                      isProfit ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"
+                    }`}>
+                      {isProfit ? "▲ Lucro" : "▼ Prejuízo"}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-400 text-center py-4">Sem movimentação no mês</p>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
 

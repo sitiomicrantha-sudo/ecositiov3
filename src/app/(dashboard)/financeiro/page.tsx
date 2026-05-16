@@ -24,6 +24,7 @@ interface Transaction {
   description: string;
   orderId: number | null;
   orderCustomerName: string | null;
+  costCenterName: string | null;
 }
 
 interface Order {

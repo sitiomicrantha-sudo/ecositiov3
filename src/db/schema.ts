@@ -8,6 +8,7 @@ import {
   integer,
   pgEnum,
   date,
+  boolean,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -117,6 +118,17 @@ export const customerStatusEnum = pgEnum("customer_status", [
 ]);
 
 // ============================================================
+// CENTROS DE CUSTO
+// ============================================================
+
+export const costCenters = pgTable("cost_centers", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 100 }).notNull(),
+  description: varchar("description", { length: 255 }),
+  isActive: boolean("is_active").default(true).notNull(),
+});
+
+// ============================================================
 // MÓDULO 1: ESTRUTURA TOPOLÓGICA
 // ============================================================
 
@@ -177,6 +189,9 @@ export const inventoryItems = pgTable("inventory_items", {
   category: categoryEnum("category").notNull().default("insumo"),
   location: varchar("location", { length: 255 }),
   basePrice: decimal("base_price", { precision: 10, scale: 2 }),
+  costCenterId: integer("cost_center_id").references(() => costCenters.id, {
+    onDelete: "set null",
+  }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -323,6 +338,9 @@ export const financialTransactions = pgTable("financial_transactions", {
   orderId: integer("order_id").references(() => orders.id, {
     onDelete: "set null",
   }),
+  costCenterId: integer("cost_center_id").references(() => costCenters.id, {
+    onDelete: "set null",
+  }),
 });
 
 // ============================================================
@@ -467,5 +485,14 @@ export const financialTransactionsRelations = relations(
       fields: [financialTransactions.orderId],
       references: [orders.id],
     }),
+    costCenter: one(costCenters, {
+      fields: [financialTransactions.costCenterId],
+      references: [costCenters.id],
+    }),
   })
 );
+
+export const costCentersRelations = relations(costCenters, ({ many }) => ({
+  inventoryItems: many(inventoryItems),
+  financialTransactions: many(financialTransactions),
+}));

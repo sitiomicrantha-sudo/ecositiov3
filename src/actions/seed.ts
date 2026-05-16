@@ -16,6 +16,7 @@ import {
   glebes,
   properties,
   customers,
+  costCenters,
 } from "@/db/schema";
 import type { ActionResult } from "./topology";
 
@@ -45,6 +46,7 @@ export async function seedDatabase(): Promise<ActionResult<string>> {
     await db.delete(glebes);
     await db.delete(properties);
     await db.delete(customers);
+    await db.delete(costCenters);
 
     await db.execute(`SELECT setval('properties_id_seq', 1, false)`);
     await db.execute(`SELECT setval('glebes_id_seq', 1, false)`);
@@ -60,6 +62,31 @@ export async function seedDatabase(): Promise<ActionResult<string>> {
     await db.execute(`SELECT setval('order_items_id_seq', 1, false)`);
     await db.execute(`SELECT setval('financial_transactions_id_seq', 1, false)`);
     await db.execute(`SELECT setval('inventory_transactions_id_seq', 1, false)`);
+    await db.execute(`SELECT setval('cost_centers_id_seq', 1, false)`);
+
+    const [ccVegetal] = await db
+      .insert(costCenters)
+      .values({
+        name: "Vegetal",
+        description: "Horta, SAF, Viveiro e Cultivos",
+      })
+      .returning();
+
+    const [ccAvicultura] = await db
+      .insert(costCenters)
+      .values({
+        name: "Avicultura",
+        description: "Aviário, Lotes e Reprodução",
+      })
+      .returning();
+
+    const [ccGeral] = await db
+      .insert(costCenters)
+      .values({
+        name: "Infraestrutura Geral",
+        description: "Despesas compartilhadas e administrativas",
+      })
+      .returning();
 
     const [prop] = await db
       .insert(properties)
@@ -155,6 +182,7 @@ export async function seedDatabase(): Promise<ActionResult<string>> {
         category: "estaca",
         location: "Viveiro - Canteiro Estacas",
         basePrice: "5.00",
+        costCenterId: ccVegetal.id,
       })
       .returning();
 
@@ -167,6 +195,7 @@ export async function seedDatabase(): Promise<ActionResult<string>> {
         category: "semente",
         location: "Gleba Sul - Armazém",
         basePrice: "15.00",
+        costCenterId: ccVegetal.id,
       })
       .returning();
 
@@ -179,6 +208,7 @@ export async function seedDatabase(): Promise<ActionResult<string>> {
         category: "insumo",
         location: "Aviário",
         basePrice: "12.00",
+        costCenterId: ccAvicultura.id,
       })
       .returning();
 
@@ -190,6 +220,7 @@ export async function seedDatabase(): Promise<ActionResult<string>> {
         type: "input",
         category: "insumo",
         location: "Compostagem - Galpão",
+        costCenterId: ccVegetal.id,
       })
       .returning();
 
@@ -201,6 +232,7 @@ export async function seedDatabase(): Promise<ActionResult<string>> {
         type: "input",
         category: "insumo",
         location: "Aviário - Depósito",
+        costCenterId: ccAvicultura.id,
       })
       .returning();
 
@@ -337,16 +369,16 @@ export async function seedDatabase(): Promise<ActionResult<string>> {
       .returning();
 
     const pedidos = [
-      { date: daysAgo(1), customerId: clienteB2B.id, customerName: null, items: [{ itemId: itemOvos.id, quantity: "60", unitPrice: "12.00", totalPrice: "720.00" }], paymentMethod: "pix" as const, paymentStatus: "pago" as const, type: "delivery" as const, deliveryFee: "5.00" },
-      { date: daysAgo(2), customerId: clienteB2C1.id, customerName: null, items: [{ itemId: itemOvos.id, quantity: "12", unitPrice: "12.00", totalPrice: "144.00" }], paymentMethod: "dinheiro" as const, paymentStatus: "pago" as const, type: "balcao" as const, deliveryFee: "0.00" },
-      { date: daysAgo(3), customerId: clienteB2C2.id, customerName: null, items: [{ itemId: itemEstacaAmora.id, quantity: "20", unitPrice: "5.00", totalPrice: "100.00" }], paymentMethod: "pix" as const, paymentStatus: "pago" as const, type: "balcao" as const, deliveryFee: "0.00" },
-      { date: daysAgo(5), customerId: clienteB2B.id, customerName: null, items: [{ itemId: itemSementeFeijao.id, quantity: "10", unitPrice: "15.00", totalPrice: "150.00" }], paymentMethod: "cartao" as const, paymentStatus: "pago" as const, type: "delivery" as const, deliveryFee: "8.00" },
-      { date: daysAgo(7), customerId: null, customerName: "Feirante da Praça", items: [{ itemId: itemOvos.id, quantity: "24", unitPrice: "12.00", totalPrice: "288.00" }], paymentMethod: "dinheiro" as const, paymentStatus: "pago" as const, type: "balcao" as const, deliveryFee: "0.00" },
-      { date: daysAgo(10), customerId: clienteB2C1.id, customerName: null, items: [{ itemId: itemEstacaAmora.id, quantity: "10", unitPrice: "5.00", totalPrice: "50.00" }], paymentMethod: "pix" as const, paymentStatus: "pago" as const, type: "balcao" as const, deliveryFee: "0.00" },
-      { date: daysAgo(0), customerId: clienteB2B.id, customerName: null, items: [{ itemId: itemOvos.id, quantity: "36", unitPrice: "12.00", totalPrice: "432.00" }], paymentMethod: "pendente" as const, paymentStatus: "pendente" as const, type: "delivery" as const, deliveryFee: "5.00" },
-      { date: daysAgo(4), customerId: clienteB2C2.id, customerName: null, items: [{ itemId: itemSementeFeijao.id, quantity: "5", unitPrice: "15.00", totalPrice: "75.00" }], paymentMethod: "pendente" as const, paymentStatus: "pendente" as const, type: "balcao" as const, deliveryFee: "0.00" },
-      { date: daysAgo(6), customerId: null, customerName: "Turista", items: [{ itemId: itemEstacaAmora.id, quantity: "5", unitPrice: "5.00", totalPrice: "25.00" }], paymentMethod: "pendente" as const, paymentStatus: "pendente" as const, type: "balcao" as const, deliveryFee: "0.00" },
-      { date: daysAgo(8), customerId: null, customerName: null, items: [{ itemId: itemOvos.id, quantity: "12", unitPrice: "12.00", totalPrice: "144.00" }], paymentMethod: "pendente" as const, paymentStatus: "pendente" as const, type: "balcao" as const, deliveryFee: "0.00" },
+      { date: daysAgo(1), customerId: clienteB2B.id, customerName: null, items: [{ itemId: itemOvos.id, quantity: "60", unitPrice: "12.00", totalPrice: "720.00", costCenterId: ccAvicultura.id }], paymentMethod: "pix" as const, paymentStatus: "pago" as const, type: "delivery" as const, deliveryFee: "5.00" },
+      { date: daysAgo(2), customerId: clienteB2C1.id, customerName: null, items: [{ itemId: itemOvos.id, quantity: "12", unitPrice: "12.00", totalPrice: "144.00", costCenterId: ccAvicultura.id }], paymentMethod: "dinheiro" as const, paymentStatus: "pago" as const, type: "balcao" as const, deliveryFee: "0.00" },
+      { date: daysAgo(3), customerId: clienteB2C2.id, customerName: null, items: [{ itemId: itemEstacaAmora.id, quantity: "20", unitPrice: "5.00", totalPrice: "100.00", costCenterId: ccVegetal.id }], paymentMethod: "pix" as const, paymentStatus: "pago" as const, type: "balcao" as const, deliveryFee: "0.00" },
+      { date: daysAgo(5), customerId: clienteB2B.id, customerName: null, items: [{ itemId: itemSementeFeijao.id, quantity: "10", unitPrice: "15.00", totalPrice: "150.00", costCenterId: ccVegetal.id }], paymentMethod: "cartao" as const, paymentStatus: "pago" as const, type: "delivery" as const, deliveryFee: "8.00" },
+      { date: daysAgo(7), customerId: null, customerName: "Feirante da Praça", items: [{ itemId: itemOvos.id, quantity: "24", unitPrice: "12.00", totalPrice: "288.00", costCenterId: ccAvicultura.id }], paymentMethod: "dinheiro" as const, paymentStatus: "pago" as const, type: "balcao" as const, deliveryFee: "0.00" },
+      { date: daysAgo(10), customerId: clienteB2C1.id, customerName: null, items: [{ itemId: itemEstacaAmora.id, quantity: "10", unitPrice: "5.00", totalPrice: "50.00", costCenterId: ccVegetal.id }], paymentMethod: "pix" as const, paymentStatus: "pago" as const, type: "balcao" as const, deliveryFee: "0.00" },
+      { date: daysAgo(0), customerId: clienteB2B.id, customerName: null, items: [{ itemId: itemOvos.id, quantity: "36", unitPrice: "12.00", totalPrice: "432.00", costCenterId: ccAvicultura.id }], paymentMethod: "pendente" as const, paymentStatus: "pendente" as const, type: "delivery" as const, deliveryFee: "5.00" },
+      { date: daysAgo(4), customerId: clienteB2C2.id, customerName: null, items: [{ itemId: itemSementeFeijao.id, quantity: "5", unitPrice: "15.00", totalPrice: "75.00", costCenterId: ccVegetal.id }], paymentMethod: "pendente" as const, paymentStatus: "pendente" as const, type: "balcao" as const, deliveryFee: "0.00" },
+      { date: daysAgo(6), customerId: null, customerName: "Turista", items: [{ itemId: itemEstacaAmora.id, quantity: "5", unitPrice: "5.00", totalPrice: "25.00", costCenterId: ccVegetal.id }], paymentMethod: "pendente" as const, paymentStatus: "pendente" as const, type: "balcao" as const, deliveryFee: "0.00" },
+      { date: daysAgo(8), customerId: null, customerName: null, items: [{ itemId: itemOvos.id, quantity: "12", unitPrice: "12.00", totalPrice: "144.00", costCenterId: ccAvicultura.id }], paymentMethod: "pendente" as const, paymentStatus: "pendente" as const, type: "balcao" as const, deliveryFee: "0.00" },
     ];
 
     for (const p of pedidos) {
@@ -383,14 +415,30 @@ export async function seedDatabase(): Promise<ActionResult<string>> {
           ? (p.customerId === clienteB2B.id ? "Restaurante Central Guaíba" : p.customerId === clienteB2C1.id ? "Dona Maria" : "Cliente Vizinho")
           : p.customerName || "Anônimo";
 
-        await db.insert(financialTransactions).values({
-          date: p.date,
-          type: "revenue",
-          category: "venda_producao",
-          amount: total,
-          description: `Pedido #${newOrder.id} - ${customerLabel}`,
-          orderId: newOrder.id,
-        });
+        const deliveryFeeNum = parseFloat(p.deliveryFee);
+        const orderSubtotal = p.items.reduce((sum, i) => sum + parseFloat(i.totalPrice), 0);
+
+        const byCenter = new Map<number, number>();
+        for (const item of p.items) {
+          const current = byCenter.get(item.costCenterId) || 0;
+          byCenter.set(item.costCenterId, current + parseFloat(item.totalPrice));
+        }
+
+        for (const [ccId, itemTotal] of byCenter.entries()) {
+          const ratio = orderSubtotal > 0 ? itemTotal / orderSubtotal : 0;
+          const splitTotal = itemTotal + deliveryFeeNum * ratio;
+          const centerName = ccId === ccAvicultura.id ? "Avicultura" : ccId === ccVegetal.id ? "Vegetal" : "Geral";
+
+          await db.insert(financialTransactions).values({
+            date: p.date,
+            type: "revenue",
+            category: "venda_producao",
+            amount: splitTotal.toFixed(2),
+            description: `Pedido #${newOrder.id} - Receita ${centerName} - ${customerLabel}`,
+            orderId: newOrder.id,
+            costCenterId: ccId,
+          });
+        }
 
         for (const item of p.items) {
           await db.insert(inventoryTransactions).values({
@@ -405,9 +453,9 @@ export async function seedDatabase(): Promise<ActionResult<string>> {
     }
 
     await db.insert(financialTransactions).values([
-      { date: daysAgo(2), type: "expense", category: "infraestrutura", amount: "350.00", description: "Compra de Ferramentas (enxadas, podadores)" },
-      { date: daysAgo(5), type: "expense", category: "logistica", amount: "180.00", description: "Combustível Trator" },
-      { date: daysAgo(9), type: "expense", category: "insumos_aves", amount: "220.00", description: "Ração para Aves - saco 50kg" },
+      { date: daysAgo(2), type: "expense", category: "infraestrutura", amount: "350.00", description: "Compra de Ferramentas (enxadas, podadores)", costCenterId: ccGeral.id },
+      { date: daysAgo(5), type: "expense", category: "logistica", amount: "180.00", description: "Combustível Trator", costCenterId: ccVegetal.id },
+      { date: daysAgo(9), type: "expense", category: "insumos_aves", amount: "220.00", description: "Ração para Aves - saco 50kg", costCenterId: ccAvicultura.id },
     ]);
 
     await db.insert(inventoryTransactions).values([
@@ -440,6 +488,7 @@ export async function clearDatabase(): Promise<ActionResult<string>> {
     await db.delete(fields);
     await db.delete(glebes);
     await db.delete(properties);
+    await db.delete(costCenters);
 
     await db.execute(`SELECT setval('properties_id_seq', 1, false)`);
     await db.execute(`SELECT setval('glebes_id_seq', 1, false)`);
@@ -455,6 +504,7 @@ export async function clearDatabase(): Promise<ActionResult<string>> {
     await db.execute(`SELECT setval('order_items_id_seq', 1, false)`);
     await db.execute(`SELECT setval('financial_transactions_id_seq', 1, false)`);
     await db.execute(`SELECT setval('inventory_transactions_id_seq', 1, false)`);
+    await db.execute(`SELECT setval('cost_centers_id_seq', 1, false)`);
 
     return { success: true, data: "Banco de dados zerado com sucesso! Todas as tabelas limpas e sequences resetadas." };
   } catch (error) {

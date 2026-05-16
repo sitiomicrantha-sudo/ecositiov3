@@ -10,8 +10,9 @@ import {
   inventoryItems,
   inventoryTransactions,
   orders,
+  costCenters,
 } from "@/db/schema";
-import { eq, or, desc, sql, and, gte, lte } from "drizzle-orm";
+import { eq, or, desc, sql, and, gte, lte, isNull } from "drizzle-orm";
 import type { ActionResult } from "./topology";
 
 export async function getFinancialOverview(): Promise<
@@ -241,5 +242,66 @@ export async function getPendingOrders(): Promise<
     return { success: true, data: enriched };
   } catch {
     return { success: false, error: "Erro ao buscar pedidos pendentes" };
+  }
+}
+
+export async function getCostCenterPerformance(): Promise<
+  ActionResult<
+    {
+      id: number;
+      name: string;
+      description: string | null;
+      revenue: number;
+      expense: number;
+      balance: number;
+    }[]
+  >
+> {
+  try {
+    const centers = await db.query.costCenters.findMany({
+      where: eq(costCenters.isActive, true),
+      orderBy: (costCenters, { asc }) => [asc(costCenters.name)],
+    });
+
+    const now = new Date();
+    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+
+    const monthTransactions = await db.query.financialTransactions.findMany({
+      where: and(
+        gte(financialTransactions.date, firstDayOfMonth),
+        lte(financialTransactions.date, lastDayOfMonth)
+      ),
+    });
+
+    const result = centers.map((center) => {
+      let revenue = 0;
+      let expense = 0;
+
+      for (const tx of monthTransactions) {
+        const txCostCenterId = (tx as any).costCenterId;
+        if (txCostCenterId !== center.id) continue;
+
+        const amount = parseFloat(tx.amount);
+        if (tx.type === "revenue") {
+          revenue += amount;
+        } else {
+          expense += amount;
+        }
+      }
+
+      return {
+        id: center.id,
+        name: center.name,
+        description: center.description,
+        revenue,
+        expense,
+        balance: revenue - expense,
+      };
+    });
+
+    return { success: true, data: result };
+  } catch {
+    return { success: false, error: "Erro ao buscar desempenho por setor" };
   }
 }

@@ -7,10 +7,22 @@ import {
   financialTransactions,
   inventoryTransactions,
   inventoryItems,
+  costCenters,
 } from "@/db/schema";
-import { eq, desc, asc } from "drizzle-orm";
+import { eq, desc, asc, and } from "drizzle-orm";
 import { z } from "zod";
 import type { ActionResult } from "./topology";
+import { calculateOrderCostCenterSplit } from "@/lib/cost-center";
+import { ensureDefaultCostCenters } from "./cost-centers";
+
+async function getFallbackCostCenterId(): Promise<number> {
+  const [fallback] = await db
+    .select({ id: costCenters.id })
+    .from(costCenters)
+    .where(eq(costCenters.name, "Infraestrutura Geral"))
+    .limit(1);
+  return fallback?.id ?? 1;
+}
 
 const orderFormSchema = z.object({
   customerName: z.string().max(255).optional(),
@@ -40,12 +52,15 @@ const expenseSchema = z.object({
     .regex(/^\d+(\.\d{1,2})?$/, "Valor deve ser um número válido"),
   description: z.string().min(1, "Descrição é obrigatória").max(255),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data deve estar no formato YYYY-MM-DD"),
+  costCenterId: z.number().int().positive("Selecione um centro de custo"),
 });
 
 export async function registerManualOrder(
   formData: z.infer<typeof orderFormSchema>
 ): Promise<ActionResult<typeof orders.$inferSelect>> {
   try {
+    await ensureDefaultCostCenters();
+
     const validated = orderFormSchema.parse(formData);
     const quantity = parseFloat(validated.quantity);
     const unitPrice = parseFloat(validated.unitPrice);
@@ -81,14 +96,29 @@ export async function registerManualOrder(
         where: eq(inventoryItems.id, validated.itemId),
       });
 
-      await db.insert(financialTransactions).values({
-        date: orderDate,
-        type: "revenue",
-        category: "venda_producao",
-        amount: totalPrice.toFixed(2),
-        description: `Pedido #${newOrder.id}: ${item?.name || "Item"}${validated.customerName ? ` para ${validated.customerName}` : ""}`,
-        orderId: newOrder.id,
-      });
+      const fallbackId = await getFallbackCostCenterId();
+      const splits = calculateOrderCostCenterSplit(
+        [{ itemId: validated.itemId, totalPrice, costCenterId: item?.costCenterId ?? null }],
+        0,
+        fallbackId
+      );
+
+      for (const split of splits) {
+        const center = await db.query.costCenters.findFirst({
+          where: eq(costCenters.id, split.costCenterId),
+        });
+        const centerName = center?.name || "Geral";
+
+        await db.insert(financialTransactions).values({
+          date: orderDate,
+          type: "revenue",
+          category: "venda_producao",
+          amount: split.total.toFixed(2),
+          description: `Pedido #${newOrder.id}: ${item?.name || "Item"}${validated.customerName ? ` para ${validated.customerName}` : ""} [${centerName}]`,
+          orderId: newOrder.id,
+          costCenterId: split.costCenterId,
+        });
+      }
 
       await db.insert(inventoryTransactions).values({
         itemId: validated.itemId,
@@ -112,6 +142,8 @@ export async function confirmOrderPayment(
   orderId: number
 ): Promise<ActionResult<typeof orders.$inferSelect>> {
   try {
+    await ensureDefaultCostCenters();
+
     const order = await db.query.orders.findFirst({
       where: eq(orders.id, orderId),
       with: {
@@ -137,16 +169,33 @@ export async function confirmOrderPayment(
       .where(eq(orders.id, orderId))
       .returning();
 
-    await db.insert(financialTransactions).values({
-      date: order.date,
-      type: "revenue",
-      category: "venda_producao",
-      amount: order.total,
-      description: `Pedido #${orderId}${order.customerName ? ` - ${order.customerName}` : ""} (pagamento confirmado)`,
-      orderId,
-    });
+    const fallbackId = await getFallbackCostCenterId();
+    const itemsWithCostCenter = (order.items as any[]).map((oi: any) => ({
+      itemId: oi.itemId,
+      totalPrice: parseFloat(oi.totalPrice),
+      costCenterId: oi.item?.costCenterId ?? null,
+    }));
 
-    for (const oi of order.items) {
+    const splits = calculateOrderCostCenterSplit(itemsWithCostCenter, parseFloat(order.deliveryFee), fallbackId);
+
+    for (const split of splits) {
+      const center = await db.query.costCenters.findFirst({
+        where: eq(costCenters.id, split.costCenterId),
+      });
+      const centerName = center?.name || "Geral";
+
+      await db.insert(financialTransactions).values({
+        date: order.date,
+        type: "revenue",
+        category: "venda_producao",
+        amount: split.total.toFixed(2),
+        description: `Pedido #${orderId}${order.customerName ? ` - ${order.customerName}` : ""} [${centerName}] (pagamento confirmado)`,
+        orderId,
+        costCenterId: split.costCenterId,
+      });
+    }
+
+    for (const oi of order.items as any[]) {
       await db.insert(inventoryTransactions).values({
         itemId: oi.itemId,
         type: "exit",
@@ -217,6 +266,8 @@ export async function registerExpense(
   formData: z.infer<typeof expenseSchema>
 ): Promise<ActionResult<typeof financialTransactions.$inferSelect>> {
   try {
+    await ensureDefaultCostCenters();
+
     const validated = expenseSchema.parse(formData);
     const expenseDate = new Date(validated.date);
 
@@ -228,6 +279,7 @@ export async function registerExpense(
         category: validated.category,
         amount: validated.amount,
         description: validated.description,
+        costCenterId: validated.costCenterId,
       })
       .returning() as unknown as typeof financialTransactions.$inferSelect[];
 
@@ -297,6 +349,7 @@ export async function getTransactionsList(): Promise<
   ActionResult<
     (typeof financialTransactions.$inferSelect & {
       orderCustomerName: string | null;
+      costCenterName: string | null;
     })[]
   >
 > {
@@ -304,6 +357,7 @@ export async function getTransactionsList(): Promise<
     const transactions = await db.query.financialTransactions.findMany({
       with: {
         order: true,
+        costCenter: true,
       },
       orderBy: [desc(financialTransactions.date)],
     });
@@ -312,6 +366,9 @@ export async function getTransactionsList(): Promise<
       ...tx,
       orderCustomerName: tx.order
         ? (tx.order as { customerName: string | null }).customerName
+        : null,
+      costCenterName: tx.costCenter
+        ? (tx.costCenter as { name: string }).name
         : null,
     }));
 
