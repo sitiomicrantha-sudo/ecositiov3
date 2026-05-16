@@ -108,6 +108,18 @@ export const financialCategoryEnum = pgEnum("financial_category", [
   "outros",
 ]);
 
+// Tipo de cliente
+export const customerTypeEnum = pgEnum("customer_type", [
+  "b2c",
+  "b2b",
+]);
+
+// Status do cliente
+export const customerStatusEnum = pgEnum("customer_status", [
+  "active",
+  "inactive",
+]);
+
 // ============================================================
 // MÓDULO 1: ESTRUTURA TOPOLÓGICA
 // Hierarquia: Propriedade > Gleba > Talhão > Canteiro
@@ -282,6 +294,9 @@ _pIndRef = poultryIndividuals;
 export const sales = pgTable("sales", {
   id: serial("id").primaryKey(),
   date: timestamp("date").defaultNow().notNull(),
+  customerId: integer("customer_id").references(() => customers.id, {
+    onDelete: "set null",
+  }),
   customerName: varchar("customer_name", { length: 255 }),
   itemId: integer("item_id")
     .notNull()
@@ -290,6 +305,18 @@ export const sales = pgTable("sales", {
   unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
   totalPrice: decimal("total_price", { precision: 10, scale: 2 }).notNull(),
   paymentStatus: paymentStatusEnum("payment_status").notNull().default("pendente"),
+});
+
+// Tabela: Clientes (CRM)
+export const customers = pgTable("customers", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  type: customerTypeEnum("type").notNull().default("b2c"),
+  email: varchar("email", { length: 255 }),
+  phone: varchar("phone", { length: 50 }),
+  document: varchar("document", { length: 50 }),
+  status: customerStatusEnum("status").notNull().default("active"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 // Tabela: Transações Financeiras (Fluxo de Caixa)
@@ -426,13 +453,22 @@ export const poultryIndividualsRelations = relations(
   })
 );
 
-// Venda pertence a um item e tem transações financeiras vinculadas
+// Venda pertence a um cliente (opcional), um item e tem transações financeiras vinculadas
 export const salesRelations = relations(sales, ({ one, many }) => ({
+  customer: one(customers, {
+    fields: [sales.customerId],
+    references: [customers.id],
+  }),
   item: one(inventoryItems, {
     fields: [sales.itemId],
     references: [inventoryItems.id],
   }),
   financialTransactions: many(financialTransactions),
+}));
+
+// Cliente tem muitas vendas
+export const customersRelations = relations(customers, ({ many }) => ({
+  sales: many(sales),
 }));
 
 // Transação financeira pertence a uma venda (opcional)

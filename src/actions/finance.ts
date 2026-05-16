@@ -17,6 +17,7 @@ import type { ActionResult } from "./topology";
 
 const saleSchema = z.object({
   customerName: z.string().max(255).optional(),
+  customerId: z.number().int().positive().optional(),
   itemId: z.number().int().positive("Selecione um item"),
   quantity: z
     .string()
@@ -63,6 +64,7 @@ export async function registerSale(
       .insert(sales)
       .values({
         date: saleDate,
+        customerId: validated.customerId || null,
         customerName: validated.customerName || null,
         itemId: validated.itemId,
         quantity: validated.quantity,

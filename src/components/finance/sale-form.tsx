@@ -25,12 +25,15 @@ import {
 import { Input } from "@/components/ui/input";
 import { Plus, Loader2, DollarSign } from "lucide-react";
 import { registerSale, getItemsForSale } from "@/actions/finance";
-import type { inventoryItems } from "@/db/schema";
+import { getActiveCustomersForSelect } from "@/actions/crm";
+import type { inventoryItems, customers } from "@/db/schema";
 
 type InventoryItem = typeof inventoryItems.$inferSelect;
+type Customer = typeof customers.$inferSelect;
 
 const saleFormSchema = z.object({
   customerName: z.string().max(255).optional(),
+  customerId: z.number().int().positive().optional(),
   itemId: z.number().int().positive("Selecione um item"),
   quantity: z
     .string()
@@ -70,12 +73,16 @@ function displayCurrency(value: string): string {
   return formatBRL(num);
 }
 
+const ANONYMOUS_VALUE = 0;
+
 export function SaleForm({ onSuccess }: SaleFormProps) {
   const [open, setOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [items, setItems] = useState<InventoryItem[]>([]);
+  const [customersList, setCustomersList] = useState<Customer[]>([]);
   const [loadingOptions, setLoadingOptions] = useState(false);
   const [total, setTotal] = useState(0);
+  const [selectedCustomerId, setSelectedCustomerId] = useState<number | undefined>(undefined);
 
   const today = new Date().toISOString().split("T")[0];
 
@@ -83,6 +90,7 @@ export function SaleForm({ onSuccess }: SaleFormProps) {
     resolver: zodResolver(saleFormSchema),
     defaultValues: {
       customerName: "",
+      customerId: undefined,
       itemId: undefined,
       quantity: "",
       unitPrice: "",
@@ -106,29 +114,56 @@ export function SaleForm({ onSuccess }: SaleFormProps) {
 
   useEffect(() => {
     if (open) {
-      loadItems();
+      loadOptions();
     }
   }, [open]);
 
-  async function loadItems() {
+  async function loadOptions() {
     setLoadingOptions(true);
-    const result = await getItemsForSale();
-    if (result.success) {
-      setItems(result.data);
+    const [itemsResult, customersResult] = await Promise.all([
+      getItemsForSale(),
+      getActiveCustomersForSelect(),
+    ]);
+    if (itemsResult.success) {
+      setItems(itemsResult.data);
+    }
+    if (customersResult.success) {
+      setCustomersList(customersResult.data);
     }
     setLoadingOptions(false);
+  }
+
+  function handleCustomerSelect(value: string) {
+    const numValue = Number(value);
+    if (numValue === ANONYMOUS_VALUE) {
+      setSelectedCustomerId(undefined);
+      form.setValue("customerId", undefined);
+    } else {
+      setSelectedCustomerId(numValue);
+      form.setValue("customerId", numValue);
+      const customer = customersList.find((c) => c.id === numValue);
+      if (customer) {
+        form.setValue("customerName", customer.name);
+      }
+    }
   }
 
   async function onSubmit(values: SaleFormValues) {
     setIsSubmitting(true);
 
     try {
-      const result = await registerSale(values);
+      const submitData = {
+        ...values,
+        customerId: selectedCustomerId,
+      };
+
+      const result = await registerSale(submitData);
 
       if (result.success) {
         const statusLabel = values.paymentStatus === "pago" ? "Venda registrada com baixa no estoque!" : "Venda registrada como pendente!";
         toast.success(statusLabel);
         form.reset();
+        setSelectedCustomerId(undefined);
         setTotal(0);
         setOpen(false);
         onSuccess();
@@ -141,6 +176,8 @@ export function SaleForm({ onSuccess }: SaleFormProps) {
       setIsSubmitting(false);
     }
   }
+
+  const isAnonymous = selectedCustomerId === undefined;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -241,17 +278,46 @@ export function SaleForm({ onSuccess }: SaleFormProps) {
 
               <FormField
                 control={form.control}
-                name="customerName"
-                render={({ field }) => (
+                name="customerId"
+                render={() => (
                   <FormItem>
-                    <FormLabel>Cliente (opcional)</FormLabel>
+                    <FormLabel>Cliente</FormLabel>
                     <FormControl>
-                      <Input placeholder="Ex: João da Silva" {...field} />
+                      <select
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        value={selectedCustomerId ?? ANONYMOUS_VALUE}
+                        onChange={(e) => handleCustomerSelect(e.target.value)}
+                      >
+                        <option value={ANONYMOUS_VALUE}>
+                          Cliente não cadastrado / Anônimo
+                        </option>
+                        {customersList.map((customer) => (
+                          <option key={customer.id} value={customer.id}>
+                            {customer.name} ({customer.type === "b2b" ? "B2B" : "B2C"})
+                          </option>
+                        ))}
+                      </select>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+
+              {isAnonymous && (
+                <FormField
+                  control={form.control}
+                  name="customerName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nome do Cliente (opcional)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Ex: João da Silva" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
 
               <FormField
                 control={form.control}
