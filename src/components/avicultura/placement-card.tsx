@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { ArrowRightLeft, AlertTriangle, CheckCircle2, Clock, ThermometerSun } from "lucide-react";
 import type { poultryLocations, poultryPlacements, poultryBatches } from "@/db/schema";
+import type { WithdrawalAlert } from "@/actions/poultry-operations";
 import {
   getDensityStatus,
   getSanitaryVoidStatus,
@@ -23,6 +24,7 @@ type Placement = typeof poultryPlacements.$inferSelect & {
 interface PlacementCardProps {
   location: Location;
   activePlacements: Placement[];
+  withdrawalAlerts: WithdrawalAlert[];
   onMove: (placement: Placement) => void;
 }
 
@@ -38,7 +40,7 @@ function calculateDaysSince(date: Date | string): number {
   return Math.max(0, Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24)));
 }
 
-export function PlacementCard({ location, activePlacements, onMove }: PlacementCardProps) {
+export function PlacementCard({ location, activePlacements, withdrawalAlerts, onMove }: PlacementCardProps) {
   const totalBirds = activePlacements.reduce(
     (sum, p) => sum + (p.batch?.activeQuantity || 0),
     0
@@ -113,6 +115,28 @@ export function PlacementCard({ location, activePlacements, onMove }: PlacementC
 
       {/* Content */}
       <div className="px-5 py-4">
+        {/* Withdrawal Alerts */}
+        {withdrawalAlerts.length > 0 && (
+          <div className="mb-4 space-y-2">
+            {withdrawalAlerts.map((alert) => (
+              <div
+                key={alert.eventId}
+                className="flex items-center gap-2 rounded-md border-2 border-red-300 bg-red-50 px-3 py-2 animate-pulse"
+              >
+                <AlertTriangle className="size-4 shrink-0 text-red-600 animate-pulse" />
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-red-800">
+                    ⚠️ EM CARÊNCIA — {alert.productName}
+                  </p>
+                  <p className="text-xs text-red-600">
+                    Ovos/Carne impróprios até {new Date(alert.withdrawalEndsAt).toLocaleDateString("pt-BR")} ({alert.daysRemaining}d)
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
         {location.status === "vazio_sanitario" ? (
           /* Vazio Sanitário View */
           <div className="space-y-3">

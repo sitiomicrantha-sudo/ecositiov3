@@ -33,6 +33,8 @@ import {
   Package,
   MapPin,
   ArrowRightLeft,
+  ClipboardList,
+  Pill,
 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 
@@ -70,6 +72,8 @@ export function DashboardSidebar({ modules }: DashboardSidebarProps) {
         { title: "Visão Geral", href: "/avicultura", icon: Bird },
         { title: "Locais Físicos", href: "/avicultura/locais", icon: MapPin },
         { title: "Alojamentos", href: "/avicultura/alojamentos", icon: ArrowRightLeft },
+        { title: "Manejo Diário", href: "/avicultura/operacoes", icon: ClipboardList },
+        { title: "Prontuário Sanitário", href: "/avicultura/prontuario", icon: Pill },
       ]
     : [];
 

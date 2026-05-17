@@ -76,6 +76,12 @@ export const poultryLocationStatusEnum = pgEnum("poultry_location_status", [
   "vazio_sanitario",
 ]);
 
+export const treatmentTypeEnum = pgEnum("treatment_type", [
+  "fitoterapico_floral",
+  "vacina_profilatica",
+  "alopatico_comercial",
+]);
+
 export const batchStatusEnum = pgEnum("batch_status", [
   "active",
   "retired",
@@ -353,6 +359,39 @@ export const poultryIndividuals = pgTable("poultry_individuals", {
 _pIndRef = poultryIndividuals;
 
 // ============================================================
+// MÓDULO 5B: OPERAÇÕES DIÁRIAS E PRONTUÁRIO SANITÁRIO
+// ============================================================
+
+export const poultryDailyRecords = pgTable("poultry_daily_records", {
+  id: serial("id").primaryKey(),
+  locationId: integer("location_id")
+    .notNull()
+    .references(() => poultryLocations.id, { onDelete: "cascade" }),
+  recordedAt: date("recorded_at").notNull(),
+  eggsCollected: integer("eggs_collected").notNull().default(0),
+  eggsBroken: integer("eggs_broken").notNull().default(0),
+  feedConsumedKg: decimal("feed_consumed_kg", { precision: 10, scale: 2 }),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const poultryHealthEvents = pgTable("poultry_health_events", {
+  id: serial("id").primaryKey(),
+  batchId: integer("batch_id").references(() => poultryBatches.id, {
+    onDelete: "set null",
+  }),
+  locationId: integer("location_id").references(() => poultryLocations.id, {
+    onDelete: "set null",
+  }),
+  treatmentType: treatmentTypeEnum("treatment_type").notNull(),
+  productName: varchar("product_name", { length: 255 }).notNull(),
+  appliedAt: timestamp("applied_at").defaultNow().notNull(),
+  withdrawalDays: integer("withdrawal_days").notNull().default(0),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ============================================================
 // MÓDULO 6: FINANCEIRO, PDV E VENDAS
 // ============================================================
 
@@ -499,11 +538,14 @@ export const fieldActivitiesRelations = relations(
 
 export const poultryLocationsRelations = relations(poultryLocations, ({ many }) => ({
   placements: many(poultryPlacements),
+  dailyRecords: many(poultryDailyRecords),
+  healthEvents: many(poultryHealthEvents),
 }));
 
 export const poultryBatchesRelations = relations(poultryBatches, ({ many }) => ({
   placements: many(poultryPlacements),
   individuals: many(poultryIndividuals),
+  healthEvents: many(poultryHealthEvents),
 }));
 
 export const poultryPlacementsRelations = relations(poultryPlacements, ({ one }) => ({
@@ -531,6 +573,30 @@ export const poultryIndividualsRelations = relations(
     mother: one(poultryIndividuals, {
       fields: [poultryIndividuals.motherId],
       references: [poultryIndividuals.id],
+    }),
+  })
+);
+
+export const poultryDailyRecordsRelations = relations(
+  poultryDailyRecords,
+  ({ one }) => ({
+    location: one(poultryLocations, {
+      fields: [poultryDailyRecords.locationId],
+      references: [poultryLocations.id],
+    }),
+  })
+);
+
+export const poultryHealthEventsRelations = relations(
+  poultryHealthEvents,
+  ({ one }) => ({
+    batch: one(poultryBatches, {
+      fields: [poultryHealthEvents.batchId],
+      references: [poultryBatches.id],
+    }),
+    location: one(poultryLocations, {
+      fields: [poultryHealthEvents.locationId],
+      references: [poultryLocations.id],
     }),
   })
 );

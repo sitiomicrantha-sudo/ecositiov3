@@ -5,12 +5,14 @@ import {
   getPoultryLocations,
   getPoultryPlacements,
 } from "@/actions/poultry";
+import { getWithdrawalAlertsForLocation } from "@/actions/poultry-operations";
 import { PlacementCard } from "@/components/avicultura/placement-card";
 import { MovementForm } from "@/components/avicultura/movement-form";
 import { BreadcrumbNav } from "@/components/layout/breadcrumb-nav";
 import { ArrowRightLeft, Loader2, Bird } from "lucide-react";
 import { toast } from "sonner";
 import type { poultryLocations, poultryPlacements, poultryBatches } from "@/db/schema";
+import type { WithdrawalAlert } from "@/actions/poultry-operations";
 
 type Location = typeof poultryLocations.$inferSelect;
 type Placement = typeof poultryPlacements.$inferSelect & {
@@ -24,6 +26,7 @@ export default function AlojamentosPage() {
   const [loading, setLoading] = useState(true);
   const [movingPlacement, setMovingPlacement] = useState<Placement | null>(null);
   const [movementOpen, setMovementOpen] = useState(false);
+  const [withdrawalAlerts, setWithdrawalAlerts] = useState<Record<number, WithdrawalAlert[]>>({});
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -54,6 +57,23 @@ export default function AlojamentosPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  useEffect(() => {
+    async function loadAlerts() {
+      const alertsMap: Record<number, WithdrawalAlert[]> = {};
+      for (const loc of locations) {
+        if (!loc.isActive) continue;
+        const result = await getWithdrawalAlertsForLocation(loc.id);
+        if (result.success && result.data.length > 0) {
+          alertsMap[loc.id] = result.data;
+        }
+      }
+      setWithdrawalAlerts(alertsMap);
+    }
+    if (locations.length > 0) {
+      loadAlerts();
+    }
+  }, [locations]);
 
   function handleMove(placement: Placement) {
     setMovingPlacement(placement);
@@ -120,6 +140,7 @@ export default function AlojamentosPage() {
               key={loc.id}
               location={loc}
               activePlacements={getActivePlacementsForLocation(loc.id)}
+              withdrawalAlerts={withdrawalAlerts[loc.id] || []}
               onMove={handleMove}
             />
           ))}
