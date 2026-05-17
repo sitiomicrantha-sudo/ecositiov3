@@ -1,229 +1,208 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import {
-  Dialog,
-  DialogContent,
-} from "@/components/ui/dialog";
-import { BatchesTable } from "@/components/avicultura/batches-table";
-import { BatchForm } from "@/components/avicultura/batch-form";
-import { IndividualsTable } from "@/components/avicultura/individuals-table";
-import { IndividualForm } from "@/components/avicultura/individual-form";
-import { PedigreeCard } from "@/components/avicultura/pedigree-card";
-import { MortalityForm } from "@/components/avicultura/mortality-form";
-import { AvesActivityButtons } from "@/components/campo/activity-buttons";
-import { ActivityTimeline } from "@/components/campo/activity-timeline";
-import { ActivityForm } from "@/components/campo/activity-form";
-import { getPoultryBatches, getPoultryIndividuals, getPedigree } from "@/actions/poultry";
-import { getAvesActivities } from "@/actions/field-activities";
-import type { poultryBatches, poultryIndividuals } from "@/db/schema";
+import { Bird, Egg, TrendingUp, Wheat, AlertTriangle } from "lucide-react";
+import { getPoultryDashboardStats, type PoultryDashboardStats } from "@/actions/poultry-analytics";
+import { getActiveWithdrawalAlerts } from "@/actions/poultry-operations";
+import { getActivePoultryLocations } from "@/actions/poultry";
+import { KpiCard } from "@/components/avicultura/kpi-card";
+import { EggProductionChart } from "@/components/avicultura/egg-production-chart";
+import { FeedConsumptionChart } from "@/components/avicultura/feed-consumption-chart";
+import { ActiveAlertsPanel } from "@/components/avicultura/active-alerts-panel";
+import type { WithdrawalAlert } from "@/actions/poultry-operations";
+import type { poultryLocations } from "@/db/schema";
+import { toast } from "sonner";
 
-type Batch = typeof poultryBatches.$inferSelect;
-type Individual = typeof poultryIndividuals.$inferSelect & {
-  batch: typeof poultryBatches.$inferSelect | null;
-};
-
-interface PedigreeData {
-  individual: typeof poultryIndividuals.$inferSelect & {
-    batch: typeof poultryBatches.$inferSelect | null;
-  };
-  father: typeof poultryIndividuals.$inferSelect | null;
-  mother: typeof poultryIndividuals.$inferSelect | null;
-  paternalGrandfather: typeof poultryIndividuals.$inferSelect | null;
-  paternalGrandmother: typeof poultryIndividuals.$inferSelect | null;
-  maternalGrandfather: typeof poultryIndividuals.$inferSelect | null;
-  maternalGrandmother: typeof poultryIndividuals.$inferSelect | null;
-}
-
-interface AvesActivity {
-  id: number;
-  date: Date;
-  category: "horta" | "aves" | "bioinsumos" | "geral";
-  activityType:
-    | "plantio"
-    | "colheita"
-    | "coleta_ovos"
-    | "limpeza_aviario"
-    | "coleta_esterco"
-    | "aplicacao_insumo"
-    | "rocagem"
-    | "alimentacao_racao"
-    | "manejo_ambiencia"
-    | "movimentacao_piquete";
-  bedId: number | null;
-  itemId: number | null;
-  batchId: number | null;
-  quantity: string | null;
-  notes: string | null;
-  bedName: string | null;
-  bedShortCode: string | null;
-  itemName: string | null;
-  batchName: string | null;
-}
-
-export default function AviculturaPage() {
-  const [batches, setBatches] = useState<Batch[]>([]);
-  const [individuals, setIndividuals] = useState<Individual[]>([]);
-  const [avesActivities, setAvesActivities] = useState<AvesActivity[]>([]);
+export default function AviculturaDashboardPage() {
   const [loading, setLoading] = useState(true);
-  const [selectedBatch, setSelectedBatch] = useState<Batch | null>(null);
-  const [mortalityOpen, setMortalityOpen] = useState(false);
-  const [selectedIndividual, setSelectedIndividual] = useState<Individual | null>(null);
-  const [pedigreeData, setPedigreeData] = useState<PedigreeData | null>(null);
-  const [pedigreeOpen, setPedigreeOpen] = useState(false);
-  const [pedigreeLoading, setPedigreeLoading] = useState(false);
-  const [selectedActivity, setSelectedActivity] = useState<string | null>(null);
-  const [activityFormOpen, setActivityFormOpen] = useState(false);
+  const [stats, setStats] = useState<PoultryDashboardStats | null>(null);
+  const [withdrawalAlerts, setWithdrawalAlerts] = useState<WithdrawalAlert[]>([]);
+  const [sanitaryVoidLocations, setSanitaryVoidLocations] = useState<
+    { name: string; shortCode: string | null; sanitaryVoidStart: Date | string | null }[]
+  >([]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
+    try {
+      const [statsResult, alertsResult, locationsResult] = await Promise.all([
+        getPoultryDashboardStats(30),
+        getActiveWithdrawalAlerts(),
+        getActivePoultryLocations(),
+      ]);
 
-    const [batchesResult, individualsResult, activitiesResult] = await Promise.all([
-      getPoultryBatches(),
-      getPoultryIndividuals(),
-      getAvesActivities(),
-    ]);
+      if (statsResult.success) {
+        setStats(statsResult.data);
+      } else {
+        toast.error(statsResult.error);
+      }
 
-    if (batchesResult.success) {
-      setBatches(batchesResult.data);
+      if (alertsResult.success) {
+        setWithdrawalAlerts(alertsResult.data);
+      }
+
+      if (locationsResult.success) {
+        const voidLocs = locationsResult.data
+          .filter((loc: typeof poultryLocations.$inferSelect) => loc.status === "vazio_sanitario")
+          .map((loc: typeof poultryLocations.$inferSelect) => ({
+            name: loc.name,
+            shortCode: loc.shortCode,
+            sanitaryVoidStart: loc.sanitaryVoidStart,
+          }));
+        setSanitaryVoidLocations(voidLocs);
+      }
+    } catch {
+      toast.error("Erro ao carregar dashboard");
+    } finally {
+      setLoading(false);
     }
-
-    if (individualsResult.success) {
-      setIndividuals(individualsResult.data);
-    }
-
-    if (activitiesResult.success) {
-      setAvesActivities(activitiesResult.data);
-    }
-
-    setLoading(false);
   }, []);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  function handleMortality(batch: Batch) {
-    setSelectedBatch(batch);
-    setMortalityOpen(true);
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-amber-600 border-t-transparent" />
+      </div>
+    );
   }
 
-  async function handleViewPedigree(individual: Individual) {
-    setSelectedIndividual(individual);
-    setPedigreeOpen(true);
-    setPedigreeLoading(true);
+  if (!stats) return null;
 
-    const result = await getPedigree(individual.id as number);
+  const layingRateBadge =
+    stats.avgLayingRate !== null
+      ? stats.avgLayingRate >= 80
+        ? { text: "Excelente", color: "green" as const }
+        : stats.avgLayingRate >= 65
+          ? { text: "Bom", color: "amber" as const }
+          : { text: "Alerta Sanidade", color: "red" as const }
+      : undefined;
 
-    if (result.success) {
-      setPedigreeData(result.data);
-    } else {
-      setPedigreeData(null);
-    }
+  const eggVariationText =
+    stats.eggVariation > 0
+      ? `+${stats.eggVariation}% vs ontem`
+      : stats.eggVariation < 0
+        ? `${stats.eggVariation}% vs ontem`
+        : "Sem variação";
 
-    setPedigreeLoading(false);
-  }
-
-  function handleSelectActivity(activityType: string) {
-    setSelectedActivity(activityType);
-    setActivityFormOpen(true);
-  }
+  const eggVariationColor =
+    stats.eggVariation > 0 ? "green" : stats.eggVariation < 0 ? "red" : "gray";
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight text-gray-900">
-            Avicultura & Genética
-          </h2>
-          <p className="mt-1 text-sm text-gray-500">
-            Gerencie lotes do plantel comercial e o registro genealógico de reprodutores.
-          </p>
+      {/* Header */}
+      <div>
+        <h2 className="flex items-center gap-2 text-2xl font-bold tracking-tight text-gray-900">
+          <Bird className="size-7 text-amber-600" />
+          Visão Geral — Avicultura
+        </h2>
+        <p className="mt-1 text-sm text-gray-500">
+          Painel de inteligência zootécnica e controle analítico do plantel.
+        </p>
+      </div>
+
+      {/* Row 1: KPI Cards */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {/* Card 1: Plantel Ativo */}
+        <KpiCard
+          icon={Bird}
+          iconColor="amber"
+          title="Plantel Ativo"
+          value={stats.totalBirds.toString()}
+          subtitle={
+            [
+              stats.birdsByPurpose.postura > 0 && `${stats.birdsByPurpose.postura} poedeiras`,
+              stats.birdsByPurpose.corte > 0 && `${stats.birdsByPurpose.corte} cortes`,
+              stats.birdsByPurpose.misto > 0 && `${stats.birdsByPurpose.misto} misto`,
+            ]
+              .filter(Boolean)
+              .join(" · ") || "Sem aves ativas"
+          }
+          badge={{ text: `${stats.totalBirds} aves`, color: "amber" }}
+        />
+
+        {/* Card 2: Produção de Hoje */}
+        <KpiCard
+          icon={Egg}
+          iconColor="emerald"
+          title="Produção de Hoje"
+          value={stats.todayEggs.toString()}
+          subtitle={`${stats.totalEggsCollected} ovos no período`}
+          badge={{ text: eggVariationText, color: eggVariationColor }}
+        />
+
+        {/* Card 3: Eficiência de Postura */}
+        <KpiCard
+          icon={TrendingUp}
+          iconColor={stats.avgLayingRate !== null ? (stats.avgLayingRate >= 80 ? "green" : stats.avgLayingRate >= 65 ? "amber" : "red") : "gray"}
+          title="Eficiência de Postura"
+          value={stats.avgLayingRate !== null ? `${stats.avgLayingRate}%` : "N/A"}
+          subtitle={
+            stats.avgLayingRate !== null
+              ? `Taxa média: ${stats.avgLayingRate}% ovos/ave/dia`
+              : "Sem poedeiras no plantel"
+          }
+          badge={layingRateBadge}
+        />
+
+        {/* Card 4: Consumo de Cocho */}
+        <KpiCard
+          icon={Wheat}
+          iconColor="blue"
+          title="Consumo de Cocho"
+          value={stats.avgFeedPerBirdPerDay > 0 ? `${stats.avgFeedPerBirdPerDay}g` : "—"}
+          subtitle={
+            stats.dailyFeedAverage > 0
+              ? `${stats.dailyFeedAverage.toFixed(1)} kg/dia no total`
+              : "Sem registros de ração"
+          }
+          infoText={
+            stats.totalFeedKg > 0
+              ? `${stats.totalFeedKg.toFixed(1)} kg consumidos no período`
+              : undefined
+          }
+        />
+      </div>
+
+      {/* Row 2: Charts */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <EggProductionChart data={stats.dailyEggData} />
+        <FeedConsumptionChart data={stats.dailyFeedData} />
+      </div>
+
+      {/* Row 3: Alerts */}
+      <ActiveAlertsPanel
+        withdrawalAlerts={withdrawalAlerts}
+        sanitaryVoidLocations={sanitaryVoidLocations}
+      />
+
+      {/* Mortality Info */}
+      {stats.totalInitial > 0 && (
+        <div className="rounded-xl border bg-white p-5 shadow-sm">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="size-5 text-amber-600" />
+            <h3 className="text-base font-semibold text-gray-900">Mortalidade Acumulada</h3>
+          </div>
+          <div className="mt-3 grid grid-cols-3 gap-4">
+            <div>
+              <p className="text-xs text-gray-500">Plantel Inicial</p>
+              <p className="text-lg font-bold text-gray-900">{stats.totalInitial}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Perdas Totais</p>
+              <p className="text-lg font-bold text-red-600">{stats.totalDeaths}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Taxa de Mortalidade</p>
+              <p className={`text-lg font-bold ${stats.mortalityRate > 10 ? "text-red-600" : "text-green-700"}`}>
+                {stats.mortalityRate}%
+              </p>
+            </div>
+          </div>
         </div>
-      </div>
-
-      {/* Botões de Manejo das Aves — fixos no topo */}
-      <div className="rounded-xl border bg-white p-4 shadow-sm sm:p-6">
-        <AvesActivityButtons onSelectActivity={handleSelectActivity} />
-      </div>
-
-      <Tabs defaultValue="batches" className="w-full">
-        <TabsList className="w-full sm:w-fit">
-          <TabsTrigger value="batches" className="flex-1 sm:flex-none">
-            Lotes do Plantel
-          </TabsTrigger>
-          <TabsTrigger value="individuals" className="flex-1 sm:flex-none">
-            Reprodutores (Pedigree)
-          </TabsTrigger>
-          <TabsTrigger value="diary" className="flex-1 sm:flex-none">
-            Diário de Manejo
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="batches" className="mt-6">
-          <div className="mb-4">
-            <BatchForm onSuccess={fetchData} />
-          </div>
-          {loading ? (
-            <div className="flex items-center justify-center py-16">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-600 border-t-transparent" />
-            </div>
-          ) : (
-            <BatchesTable batches={batches} onMortality={handleMortality} />
-          )}
-        </TabsContent>
-
-        <TabsContent value="individuals" className="mt-6">
-          <div className="mb-4">
-            <IndividualForm onSuccess={fetchData} />
-          </div>
-          {loading ? (
-            <div className="flex items-center justify-center py-16">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-amber-600 border-t-transparent" />
-            </div>
-          ) : (
-            <IndividualsTable
-              individuals={individuals}
-              onViewPedigree={handleViewPedigree}
-            />
-          )}
-        </TabsContent>
-
-        <TabsContent value="diary" className="mt-6">
-          <ActivityTimeline activities={avesActivities} />
-        </TabsContent>
-      </Tabs>
-
-      <MortalityForm
-        batch={selectedBatch}
-        open={mortalityOpen}
-        onOpenChange={setMortalityOpen}
-        onSuccess={fetchData}
-      />
-
-      <Dialog open={pedigreeOpen} onOpenChange={setPedigreeOpen}>
-        {pedigreeLoading ? (
-          <DialogContent>
-            <div className="flex items-center justify-center py-8">
-              <div className="h-6 w-6 animate-spin rounded-full border-2 border-amber-600 border-t-transparent" />
-            </div>
-          </DialogContent>
-        ) : (
-          <PedigreeCard
-            pedigree={pedigreeData}
-            open={pedigreeOpen}
-            onOpenChange={setPedigreeOpen}
-          />
-        )}
-      </Dialog>
-
-      <ActivityForm
-        activityType={selectedActivity}
-        open={activityFormOpen}
-        onOpenChange={setActivityFormOpen}
-        onSuccess={fetchData}
-      />
+      )}
     </div>
   );
 }
