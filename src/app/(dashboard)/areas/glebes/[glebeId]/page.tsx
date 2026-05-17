@@ -19,15 +19,17 @@ export default function GlebeDetailPage() {
   const [glebe, setGlebe] = useState<Glebe | null>(null);
   const [propertyName, setPropertyName] = useState<string>("");
   const [fieldsList, setFieldsList] = useState<Field[]>([]);
+  const [archivedFields, setArchivedFields] = useState<Field[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [propertyResult, glebeResult, fieldsResult] = await Promise.all([
+      const [propertyResult, glebeResult, fieldsResult, archivedResult] = await Promise.all([
         ensureDefaultProperty(),
         getGlebeById(glebeId),
-        getFieldsByGlebe(glebeId),
+        getFieldsByGlebe(glebeId, "active"),
+        getFieldsByGlebe(glebeId, "archived"),
       ]);
 
       if (propertyResult.success) {
@@ -44,6 +46,10 @@ export default function GlebeDetailPage() {
         setFieldsList(fieldsResult.data);
       } else {
         toast.error(fieldsResult.error);
+      }
+
+      if (archivedResult.success) {
+        setArchivedFields(archivedResult.data);
       }
     } catch {
       toast.error("Erro ao carregar dados da gleba");
@@ -120,7 +126,7 @@ export default function GlebeDetailPage() {
         <h3 className="mb-4 text-lg font-semibold text-gray-900">
           Talhões ({fieldsList.length})
         </h3>
-        <FieldsTable fieldsList={fieldsList} glebeId={glebeId} onSuccess={loadData} />
+        <FieldsTable fieldsList={fieldsList} archivedList={archivedFields} glebeId={glebeId} onSuccess={loadData} />
       </div>
     </div>
   );

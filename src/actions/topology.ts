@@ -2,7 +2,7 @@
 
 import { db } from "@/db";
 import { properties, glebes, fields, beds } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, or, isNull } from "drizzle-orm";
 import { z } from "zod";
 
 // ============================================================
@@ -64,6 +64,8 @@ const bedUpdateSchema = z.object({
 export type ActionResult<T> =
   | { success: true; data: T }
   | { success: false; error: string };
+
+export type StatusFilter = "active" | "archived" | "all";
 
 // ============================================================
 // VALIDAÇÃO DE ÁREA ACUMULADA
@@ -352,12 +354,52 @@ export async function archiveGlebe(
   }
 }
 
+export async function restoreGlebe(
+  id: number
+): Promise<ActionResult<typeof glebes.$inferSelect>> {
+  try {
+    const existing = await db.query.glebes.findFirst({
+      where: eq(glebes.id, id),
+    });
+
+    if (!existing) {
+      return { success: false, error: "Gleba não encontrada" };
+    }
+
+    if (existing.isActive) {
+      return { success: false, error: "Gleba já está ativa" };
+    }
+
+    const areaValidation = await validateGlebeArea(existing.propertyId, parseFloat(existing.area), id);
+    if (!areaValidation.success) {
+      return { success: false, error: areaValidation.error };
+    }
+
+    const [restored] = await db
+      .update(glebes)
+      .set({ isActive: true, updatedAt: new Date() })
+      .where(eq(glebes.id, id))
+      .returning();
+
+    return { success: true, data: restored };
+  } catch {
+    return { success: false, error: "Erro ao restaurar gleba" };
+  }
+}
+
 export async function getGlebesByProperty(
-  propertyId: number
+  propertyId: number,
+  status: StatusFilter = "active"
 ): Promise<ActionResult<typeof glebes.$inferSelect[]>> {
   try {
+    const whereClause = status === "active"
+      ? and(eq(glebes.propertyId, propertyId), eq(glebes.isActive, true))
+      : status === "archived"
+        ? and(eq(glebes.propertyId, propertyId), eq(glebes.isActive, false))
+        : eq(glebes.propertyId, propertyId);
+
     const glebesList = await db.query.glebes.findMany({
-      where: and(eq(glebes.propertyId, propertyId), eq(glebes.isActive, true)),
+      where: whereClause,
       orderBy: (glebes, { asc }) => [asc(glebes.name)],
     });
 
@@ -491,12 +533,64 @@ export async function archiveField(
   }
 }
 
+export async function restoreField(
+  id: number
+): Promise<ActionResult<typeof fields.$inferSelect>> {
+  try {
+    const existing = await db.query.fields.findFirst({
+      where: eq(fields.id, id),
+    });
+
+    if (!existing) {
+      return { success: false, error: "Talhão não encontrado" };
+    }
+
+    if (existing.isActive) {
+      return { success: false, error: "Talhão já está ativo" };
+    }
+
+    const parentGlebe = await db.query.glebes.findFirst({
+      where: eq(glebes.id, existing.glebeId),
+    });
+
+    if (!parentGlebe) {
+      return { success: false, error: "Gleba pai não encontrada" };
+    }
+
+    if (!parentGlebe.isActive) {
+      return { success: false, error: `Não é possível restaurar o talhão pois a gleba "${parentGlebe.name}" está arquivada` };
+    }
+
+    const areaValidation = await validateFieldArea(existing.glebeId, parseFloat(existing.area), id);
+    if (!areaValidation.success) {
+      return { success: false, error: areaValidation.error };
+    }
+
+    const [restored] = await db
+      .update(fields)
+      .set({ isActive: true, updatedAt: new Date() })
+      .where(eq(fields.id, id))
+      .returning();
+
+    return { success: true, data: restored };
+  } catch {
+    return { success: false, error: "Erro ao restaurar talhão" };
+  }
+}
+
 export async function getFieldsByGlebe(
-  glebeId: number
+  glebeId: number,
+  status: StatusFilter = "active"
 ): Promise<ActionResult<typeof fields.$inferSelect[]>> {
   try {
+    const whereClause = status === "active"
+      ? and(eq(fields.glebeId, glebeId), eq(fields.isActive, true))
+      : status === "archived"
+        ? and(eq(fields.glebeId, glebeId), eq(fields.isActive, false))
+        : eq(fields.glebeId, glebeId);
+
     const fieldsList = await db.query.fields.findMany({
-      where: and(eq(fields.glebeId, glebeId), eq(fields.isActive, true)),
+      where: whereClause,
       orderBy: (fields, { asc }) => [asc(fields.name)],
     });
 
@@ -630,12 +724,64 @@ export async function archiveBed(
   }
 }
 
+export async function restoreBed(
+  id: number
+): Promise<ActionResult<typeof beds.$inferSelect>> {
+  try {
+    const existing = await db.query.beds.findFirst({
+      where: eq(beds.id, id),
+    });
+
+    if (!existing) {
+      return { success: false, error: "Canteiro não encontrado" };
+    }
+
+    if (existing.isActive) {
+      return { success: false, error: "Canteiro já está ativo" };
+    }
+
+    const parentField = await db.query.fields.findFirst({
+      where: eq(fields.id, existing.fieldId),
+    });
+
+    if (!parentField) {
+      return { success: false, error: "Talhão pai não encontrado" };
+    }
+
+    if (!parentField.isActive) {
+      return { success: false, error: `Não é possível restaurar o canteiro pois o talhão "${parentField.name}" está arquivado` };
+    }
+
+    const areaValidation = await validateBedArea(existing.fieldId, parseFloat(existing.area), id);
+    if (!areaValidation.success) {
+      return { success: false, error: areaValidation.error };
+    }
+
+    const [restored] = await db
+      .update(beds)
+      .set({ isActive: true, updatedAt: new Date() })
+      .where(eq(beds.id, id))
+      .returning();
+
+    return { success: true, data: restored };
+  } catch {
+    return { success: false, error: "Erro ao restaurar canteiro" };
+  }
+}
+
 export async function getBedsByField(
-  fieldId: number
+  fieldId: number,
+  status: StatusFilter = "active"
 ): Promise<ActionResult<typeof beds.$inferSelect[]>> {
   try {
+    const whereClause = status === "active"
+      ? and(eq(beds.fieldId, fieldId), eq(beds.isActive, true))
+      : status === "archived"
+        ? and(eq(beds.fieldId, fieldId), eq(beds.isActive, false))
+        : eq(beds.fieldId, fieldId);
+
     const bedsList = await db.query.beds.findMany({
-      where: and(eq(beds.fieldId, fieldId), eq(beds.isActive, true)),
+      where: whereClause,
       orderBy: (beds, { asc }) => [asc(beds.name)],
     });
 

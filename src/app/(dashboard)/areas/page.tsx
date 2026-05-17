@@ -16,14 +16,16 @@ const DEFAULT_PROPERTY_ID = 1;
 export default function AreasPage() {
   const [property, setProperty] = useState<Property | null>(null);
   const [glebesList, setGlebesList] = useState<Glebe[]>([]);
+  const [archivedGlebes, setArchivedGlebes] = useState<Glebe[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [propertyResult, glebesResult] = await Promise.all([
+      const [propertyResult, glebesResult, archivedResult] = await Promise.all([
         ensureDefaultProperty(),
-        getGlebesByProperty(DEFAULT_PROPERTY_ID),
+        getGlebesByProperty(DEFAULT_PROPERTY_ID, "active"),
+        getGlebesByProperty(DEFAULT_PROPERTY_ID, "archived"),
       ]);
 
       if (propertyResult.success) {
@@ -36,6 +38,10 @@ export default function AreasPage() {
         setGlebesList(glebesResult.data);
       } else {
         toast.error(glebesResult.error);
+      }
+
+      if (archivedResult.success) {
+        setArchivedGlebes(archivedResult.data);
       }
     } catch {
       toast.error("Erro ao carregar áreas");
@@ -106,7 +112,7 @@ export default function AreasPage() {
         <h3 className="mb-4 text-lg font-semibold text-gray-900">
           Glebas ({glebesList.length})
         </h3>
-        <GlebesTable glebesList={glebesList} propertyId={DEFAULT_PROPERTY_ID} onSuccess={loadData} />
+        <GlebesTable glebesList={glebesList} archivedList={archivedGlebes} propertyId={DEFAULT_PROPERTY_ID} onSuccess={loadData} />
       </div>
     </div>
   );

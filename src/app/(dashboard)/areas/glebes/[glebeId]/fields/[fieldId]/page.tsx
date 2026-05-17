@@ -26,17 +26,19 @@ export default function FieldDetailPage() {
   const [propertyName, setPropertyName] = useState<string>("");
   const [glebeName, setGlebeName] = useState<string>("");
   const [bedsList, setBedsList] = useState<Bed[]>([]);
+  const [archivedBeds, setArchivedBeds] = useState<Bed[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [propertyResult, glebeResult, fieldResult, bedsResult] =
+      const [propertyResult, glebeResult, fieldResult, bedsResult, archivedResult] =
         await Promise.all([
           ensureDefaultProperty(),
           getGlebeById(glebeId),
           getFieldById(fieldId),
-          getBedsByField(fieldId),
+          getBedsByField(fieldId, "active"),
+          getBedsByField(fieldId, "archived"),
         ]);
 
       if (propertyResult.success) {
@@ -57,6 +59,10 @@ export default function FieldDetailPage() {
         setBedsList(bedsResult.data);
       } else {
         toast.error(bedsResult.error);
+      }
+
+      if (archivedResult.success) {
+        setArchivedBeds(archivedResult.data);
       }
     } catch {
       toast.error("Erro ao carregar dados do talhão");
@@ -135,7 +141,7 @@ export default function FieldDetailPage() {
         <h3 className="mb-4 text-lg font-semibold text-gray-900">
           Canteiros ({bedsList.length})
         </h3>
-        <BedsTable bedsList={bedsList} fieldId={fieldId} onSuccess={loadData} />
+        <BedsTable bedsList={bedsList} archivedList={archivedBeds} fieldId={fieldId} onSuccess={loadData} />
       </div>
     </div>
   );
