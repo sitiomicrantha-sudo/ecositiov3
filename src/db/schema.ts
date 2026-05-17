@@ -129,6 +129,17 @@ export const costCenters = pgTable("cost_centers", {
 });
 
 // ============================================================
+// MÓDULOS DO SISTEMA (ERP Modular)
+// ============================================================
+
+export const systemModules = pgTable("system_modules", {
+  id: varchar("id", { length: 50 }).primaryKey(),
+  name: varchar("name", { length: 100 }).notNull(),
+  description: varchar("description", { length: 255 }),
+  isActive: boolean("is_active").default(true).notNull(),
+});
+
+// ============================================================
 // MÓDULO 1: ESTRUTURA TOPOLÓGICA
 // ============================================================
 

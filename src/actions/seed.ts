@@ -17,6 +17,7 @@ import {
   properties,
   customers,
   costCenters,
+  systemModules,
 } from "@/db/schema";
 import type { ActionResult } from "./topology";
 
@@ -47,6 +48,7 @@ export async function seedDatabase(): Promise<ActionResult<string>> {
     await db.delete(properties);
     await db.delete(customers);
     await db.delete(costCenters);
+    await db.delete(systemModules);
 
     await db.execute(`SELECT setval('properties_id_seq', 1, false)`);
     await db.execute(`SELECT setval('glebes_id_seq', 1, false)`);
@@ -63,6 +65,13 @@ export async function seedDatabase(): Promise<ActionResult<string>> {
     await db.execute(`SELECT setval('financial_transactions_id_seq', 1, false)`);
     await db.execute(`SELECT setval('inventory_transactions_id_seq', 1, false)`);
     await db.execute(`SELECT setval('cost_centers_id_seq', 1, false)`);
+
+    await db.insert(systemModules).values([
+      { id: "vegetal", name: "Caderno de Campo", isActive: true },
+      { id: "avicultura", name: "Avicultura", isActive: true },
+      { id: "criatorio", name: "Criatório / Incubação", isActive: false },
+      { id: "prv", name: "PRV (Pastoreio Racional)", isActive: false },
+    ]);
 
     const [ccVegetal] = await db
       .insert(costCenters)

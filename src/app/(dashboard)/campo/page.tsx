@@ -3,12 +3,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { BedsOverview } from "@/components/campo/beds-overview";
-import { ActivityButtons } from "@/components/campo/activity-buttons";
+import { VegetalActivityButtons } from "@/components/campo/activity-buttons";
 import { ActivityForm } from "@/components/campo/activity-form";
 import { ActivityTimeline } from "@/components/campo/activity-timeline";
 import {
   getBedsWithPlantingStatus,
-  getFieldActivities,
+  getVegetalActivities,
 } from "@/actions/field-activities";
 
 interface BedStatus {
@@ -56,7 +56,7 @@ export default function CampoPage() {
 
     const [bedsResult, activitiesResult] = await Promise.all([
       getBedsWithPlantingStatus(),
-      getFieldActivities(),
+      getVegetalActivities(),
     ]);
 
     if (bedsResult.success) {
@@ -86,7 +86,7 @@ export default function CampoPage() {
           Caderno de Campo
         </h2>
         <p className="mt-1 text-sm text-gray-500">
-          Registre plantios, colheitas, manejo das aves e acompanhe o histórico do sítio.
+          Registre plantios, colheitas e manejo vegetal do sítio.
         </p>
       </div>
 
@@ -110,7 +110,7 @@ export default function CampoPage() {
 
             <TabsContent value="register" className="mt-6">
               <div className="rounded-xl border bg-white p-4 shadow-sm sm:p-6">
-                <ActivityButtons onSelectActivity={handleSelectActivity} />
+                <VegetalActivityButtons onSelectActivity={handleSelectActivity} />
               </div>
             </TabsContent>
 

@@ -172,6 +172,76 @@ export async function getFieldActivities(): Promise<
   }
 }
 
+export async function getVegetalActivities(): Promise<
+  ActionResult<
+    (typeof fieldActivities.$inferSelect & {
+      bedName: string | null;
+      itemName: string | null;
+      batchName: string | null;
+    })[]
+  >
+> {
+  try {
+    const activities = await db.query.fieldActivities.findMany({
+      where: or(
+        eq(fieldActivities.category, "horta"),
+        eq(fieldActivities.category, "bioinsumos"),
+        eq(fieldActivities.category, "geral")
+      ),
+      with: {
+        bed: true,
+        item: true,
+        batch: true,
+      },
+      orderBy: (fieldActivities, { desc }) => [desc(fieldActivities.date)],
+    });
+
+    const enriched = activities.map((a) => ({
+      ...a,
+      bedName: (a.bed as { name: string } | null)?.name || null,
+      itemName: (a.item as { name: string } | null)?.name || null,
+      batchName: (a.batch as { name: string } | null)?.name || null,
+    }));
+
+    return { success: true, data: enriched };
+  } catch {
+    return { success: false, error: "Erro ao buscar atividades vegetais" };
+  }
+}
+
+export async function getAvesActivities(): Promise<
+  ActionResult<
+    (typeof fieldActivities.$inferSelect & {
+      bedName: string | null;
+      itemName: string | null;
+      batchName: string | null;
+    })[]
+  >
+> {
+  try {
+    const activities = await db.query.fieldActivities.findMany({
+      where: eq(fieldActivities.category, "aves"),
+      with: {
+        bed: true,
+        item: true,
+        batch: true,
+      },
+      orderBy: (fieldActivities, { desc }) => [desc(fieldActivities.date)],
+    });
+
+    const enriched = activities.map((a) => ({
+      ...a,
+      bedName: (a.bed as { name: string } | null)?.name || null,
+      itemName: (a.item as { name: string } | null)?.name || null,
+      batchName: (a.batch as { name: string } | null)?.name || null,
+    }));
+
+    return { success: true, data: enriched };
+  } catch {
+    return { success: false, error: "Erro ao buscar atividades de aves" };
+  }
+}
+
 export async function getBedsWithPlantingStatus(): Promise<
   ActionResult<
     (typeof beds.$inferSelect & {

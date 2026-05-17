@@ -32,26 +32,44 @@ import {
 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 
-const operationsItems = [
-  { title: "Topologia / Áreas", href: "/areas", icon: Map },
-  { title: "Caderno de Campo", href: "/campo", icon: Sprout },
-  { title: "Avicultura", href: "/avicultura", icon: Bird },
-];
+interface Module {
+  id: string;
+  name: string;
+  description: string | null;
+  isActive: boolean;
+}
 
-const salesItems = [
-  { title: "PDV / Caixa", href: "/pdv", icon: ShoppingCart },
-  { title: "Estoque / Germoplasma", href: "/estoque", icon: Leaf },
-  { title: "Financeiro", href: "/financeiro", icon: Wallet },
-  { title: "Clientes", href: "/clientes", icon: DollarSign },
-];
+interface DashboardSidebarProps {
+  modules: Module[];
+}
 
-const settingsItems = [
-  { title: "Configurações", href: "/configuracoes", icon: Settings },
-];
-
-export function DashboardSidebar() {
+export function DashboardSidebar({ modules }: DashboardSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
+
+  const vegetalActive = modules.some((m) => m.id === "vegetal" && m.isActive);
+  const aviculturaActive = modules.some((m) => m.id === "avicultura" && m.isActive);
+
+  const operationsItems = [
+    { title: "Topologia / Áreas", href: "/areas", icon: Map },
+    ...(vegetalActive
+      ? [{ title: "Caderno de Campo", href: "/campo", icon: Sprout }]
+      : []),
+    ...(aviculturaActive
+      ? [{ title: "Avicultura", href: "/avicultura", icon: Bird }]
+      : []),
+  ];
+
+  const salesItems = [
+    { title: "PDV / Caixa", href: "/pdv", icon: ShoppingCart },
+    { title: "Estoque / Germoplasma", href: "/estoque", icon: Leaf },
+    { title: "Financeiro", href: "/financeiro", icon: Wallet },
+    { title: "Clientes", href: "/clientes", icon: DollarSign },
+  ];
+
+  const settingsItems = [
+    { title: "Configurações", href: "/configuracoes", icon: Settings },
+  ];
 
   return (
     <Sidebar
@@ -99,27 +117,29 @@ export function DashboardSidebar() {
         </SidebarGroup>
 
         {/* Operações */}
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-green-300">
-            Operações
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {operationsItems.map((item) => (
-                <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton
-                    isActive={pathname === item.href}
-                    onClick={() => router.push(item.href)}
-                    className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground"
-                  >
-                    <item.icon className="size-4" />
-                    <span>{item.title}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {operationsItems.length > 1 && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-green-300">
+              Operações
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {operationsItems.map((item) => (
+                  <SidebarMenuItem key={item.href}>
+                    <SidebarMenuButton
+                      isActive={pathname === item.href}
+                      onClick={() => router.push(item.href)}
+                      className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground"
+                    >
+                      <item.icon className="size-4" />
+                      <span>{item.title}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
         {/* Estoque & Vendas */}
         <SidebarGroup>

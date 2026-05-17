@@ -11,7 +11,7 @@ interface ActivityType {
   hoverBg: string;
 }
 
-const hortaSafActivities: ActivityType[] = [
+export const hortaSafActivities: ActivityType[] = [
   {
     id: "plantio",
     label: "Plantio",
@@ -46,7 +46,7 @@ const hortaSafActivities: ActivityType[] = [
   },
 ];
 
-const avesActivities: ActivityType[] = [
+export const avesActivities: ActivityType[] = [
   {
     id: "coleta_ovos",
     label: "Coleta de Ovos",
@@ -101,50 +101,59 @@ interface ActivityButtonsProps {
   onSelectActivity: (activityType: string) => void;
 }
 
+export function VegetalActivityButtons({ onSelectActivity }: ActivityButtonsProps) {
+  return (
+    <div>
+      <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-green-800">
+        Manejo da Horta / SAF
+      </h3>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {hortaSafActivities.map((activity) => (
+          <button
+            key={activity.id}
+            onClick={() => onSelectActivity(activity.id)}
+            className={`flex flex-col items-center justify-center gap-2 rounded-xl border p-4 transition-all ${activity.bgColor} ${activity.hoverBg} border-transparent`}
+          >
+            <activity.icon className={`size-6 ${activity.color}`} />
+            <span className={`text-center text-xs font-medium ${activity.color}`}>
+              {activity.label}
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function AvesActivityButtons({ onSelectActivity }: ActivityButtonsProps) {
+  return (
+    <div>
+      <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-green-800">
+        Manejo das Aves
+      </h3>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {avesActivities.map((activity) => (
+          <button
+            key={activity.id}
+            onClick={() => onSelectActivity(activity.id)}
+            className={`flex flex-col items-center justify-center gap-2 rounded-xl border p-4 transition-all ${activity.bgColor} ${activity.hoverBg} border-transparent`}
+          >
+            <activity.icon className={`size-6 ${activity.color}`} />
+            <span className={`text-center text-xs font-medium ${activity.color}`}>
+              {activity.label}
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function ActivityButtons({ onSelectActivity }: ActivityButtonsProps) {
   return (
     <div className="space-y-6">
-      {/* Manejo da Horta/SAF */}
-      <div>
-        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-green-800">
-          Manejo da Horta / SAF
-        </h3>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {hortaSafActivities.map((activity) => (
-            <button
-              key={activity.id}
-              onClick={() => onSelectActivity(activity.id)}
-              className={`flex flex-col items-center justify-center gap-2 rounded-xl border p-4 transition-all ${activity.bgColor} ${activity.hoverBg} border-transparent`}
-            >
-              <activity.icon className={`size-6 ${activity.color}`} />
-              <span className={`text-center text-xs font-medium ${activity.color}`}>
-                {activity.label}
-              </span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Manejo das Aves */}
-      <div>
-        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-green-800">
-          Manejo das Aves
-        </h3>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          {avesActivities.map((activity) => (
-            <button
-              key={activity.id}
-              onClick={() => onSelectActivity(activity.id)}
-              className={`flex flex-col items-center justify-center gap-2 rounded-xl border p-4 transition-all ${activity.bgColor} ${activity.hoverBg} border-transparent`}
-            >
-              <activity.icon className={`size-6 ${activity.color}`} />
-              <span className={`text-center text-xs font-medium ${activity.color}`}>
-                {activity.label}
-              </span>
-            </button>
-          ))}
-        </div>
-      </div>
+      <VegetalActivityButtons onSelectActivity={onSelectActivity} />
+      <AvesActivityButtons onSelectActivity={onSelectActivity} />
     </div>
   );
 }
