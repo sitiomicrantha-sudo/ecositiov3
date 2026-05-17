@@ -324,7 +324,7 @@ export async function getBedsWithPlantingStatus(): Promise<
 
     const plantingByBed = new Map<number, typeof activePlantings[number]>();
     for (const p of activePlantings) {
-      if (!plantingByBed.has(p.bedId)) {
+      if (p.bedId !== null && !plantingByBed.has(p.bedId)) {
         plantingByBed.set(p.bedId, p);
       }
     }

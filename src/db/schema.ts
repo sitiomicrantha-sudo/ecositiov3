@@ -34,9 +34,16 @@ export const categoryEnum = pgEnum("category", [
 ]);
 
 export const plantingStatusEnum = pgEnum("planting_status", [
+  "planned",
   "active",
   "harvested",
   "permanent",
+]);
+
+export const cropCycleTypeEnum = pgEnum("crop_cycle_type", [
+  "ciclo_curto",
+  "anual",
+  "perene",
 ]);
 
 export const activityCategoryEnum = pgEnum("activity_category", [
@@ -270,17 +277,36 @@ export const inventoryTransactions = pgTable("inventory_transactions", {
 // MÓDULO 4: CADERNO DE CAMPO E REGISTRO DE MANEJO
 // ============================================================
 
+export const crops = pgTable("crops", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  cycleType: cropCycleTypeEnum("cycle_type").notNull(),
+  averageCycleDays: integer("average_cycle_days").notNull(),
+  seedRequirementPerM2: decimal("seed_requirement_per_m2", { precision: 10, scale: 4 }),
+  seedlingRequirementPerM2: decimal("seedling_requirement_per_m2", { precision: 10, scale: 4 }),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const plantings = pgTable("plantings", {
   id: serial("id").primaryKey(),
   bedId: integer("bed_id")
-    .notNull()
-    .references(() => beds.id, { onDelete: "cascade" }),
+    .references(() => beds.id, { onDelete: "set null" }),
+  fieldId: integer("field_id")
+    .references(() => fields.id, { onDelete: "set null" }),
   itemId: integer("item_id")
     .notNull()
     .references(() => inventoryItems.id, { onDelete: "cascade" }),
+  cropId: integer("crop_id")
+    .references(() => crops.id, { onDelete: "set null" }),
   status: plantingStatusEnum("status").notNull().default("active"),
-  plantedAt: timestamp("planted_at").defaultNow().notNull(),
+  plantedAt: timestamp("planted_at").defaultNow(),
   harvestedAt: timestamp("harvested_at"),
+  expectedHarvestAt: timestamp("expected_harvest_at"),
+  plannedAreaM2: decimal("planned_area_m2", { precision: 10, scale: 2 }),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 export const fieldActivities = pgTable("field_activities", {
@@ -600,10 +626,22 @@ export const plantingsRelations = relations(plantings, ({ one }) => ({
     fields: [plantings.bedId],
     references: [beds.id],
   }),
+  field: one(fields, {
+    fields: [plantings.fieldId],
+    references: [fields.id],
+  }),
   item: one(inventoryItems, {
     fields: [plantings.itemId],
     references: [inventoryItems.id],
   }),
+  crop: one(crops, {
+    fields: [plantings.cropId],
+    references: [crops.id],
+  }),
+}));
+
+export const cropsRelations = relations(crops, ({ many }) => ({
+  plantings: many(plantings),
 }));
 
 export const fieldActivitiesRelations = relations(

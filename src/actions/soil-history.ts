@@ -38,7 +38,7 @@ export type BedDossier = {
     activePlantings: {
       itemName: string | null;
       status: string;
-      plantedAt: Date;
+      plantedAt: Date | null;
     }[];
     lastFertilityDate: Date | null;
     daysSinceFertility: number | null;
@@ -89,6 +89,8 @@ export async function getBedOpacDossier(bedId: number): Promise<ActionResult<Bed
     const timeline: DossierTimelineEntry[] = [];
 
     for (const p of allPlantings) {
+      if (!p.plantedAt) continue;
+
       timeline.push({
         id: p.id,
         date: p.plantedAt,
@@ -341,7 +343,7 @@ export type PoultryFieldHistory = {
   recentPlantings: {
     id: number;
     itemName: string | null;
-    plantedAt: Date;
+    plantedAt: Date | null;
     harvestedAt: Date | null;
     status: string;
     bedName: string | null;
@@ -397,7 +399,7 @@ export async function getPoultryFieldHistory(
     let recentPlantings: {
       id: number;
       itemName: string | null;
-      plantedAt: Date;
+      plantedAt: Date | null;
       harvestedAt: Date | null;
       status: string;
       bedName: string | null;

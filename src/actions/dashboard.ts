@@ -81,7 +81,9 @@ export async function getOperationalOverview(): Promise<
     });
 
     for (const p of activePlantings) {
-      bedIdsWithActivePlanting.add(p.bedId);
+      if (p.bedId !== null) {
+        bedIdsWithActivePlanting.add(p.bedId);
+      }
     }
 
     const occupiedBeds = bedIdsWithActivePlanting.size;

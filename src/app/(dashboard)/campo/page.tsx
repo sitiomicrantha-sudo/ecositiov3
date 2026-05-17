@@ -10,6 +10,7 @@ import {
   getBedsWithPlantingStatus,
   getVegetalActivities,
 } from "@/actions/field-activities";
+import { UnifiedPlantingForm } from "@/components/campo/unified-planting-form";
 
 interface BedStatus {
   id: number;
@@ -51,6 +52,7 @@ export default function CampoPage() {
   const [loading, setLoading] = useState(true);
   const [selectedActivity, setSelectedActivity] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
+  const [plantingFormOpen, setPlantingFormOpen] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -110,8 +112,27 @@ export default function CampoPage() {
             </TabsList>
 
             <TabsContent value="register" className="mt-6">
-              <div className="rounded-xl border bg-white p-4 shadow-sm sm:p-6">
-                <VegetalActivityButtons onSelectActivity={handleSelectActivity} />
+              <div className="space-y-4">
+                <div className="rounded-xl border bg-white p-4 shadow-sm sm:p-6">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">Plantio / Planejamento</h3>
+                      <p className="text-sm text-gray-500">
+                        Registre um plantio imediato ou planeje uma safra futura.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setPlantingFormOpen(true)}
+                      className="inline-flex items-center justify-center gap-2 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-emerald-700"
+                    >
+                      Novo Plantio
+                    </button>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border bg-white p-4 shadow-sm sm:p-6">
+                  <VegetalActivityButtons onSelectActivity={handleSelectActivity} />
+                </div>
               </div>
             </TabsContent>
 
@@ -126,6 +147,12 @@ export default function CampoPage() {
         activityType={selectedActivity}
         open={formOpen}
         onOpenChange={setFormOpen}
+        onSuccess={fetchData}
+      />
+
+      <UnifiedPlantingForm
+        open={plantingFormOpen}
+        onOpenChange={setPlantingFormOpen}
         onSuccess={fetchData}
       />
     </div>

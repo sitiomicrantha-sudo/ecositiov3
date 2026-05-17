@@ -44,6 +44,7 @@ import {
   Store,
   Boxes,
   Users,
+  Calendar,
   type LucideIcon,
 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
@@ -159,6 +160,9 @@ export function DashboardSidebar({ modules }: DashboardSidebarProps) {
   const router = useRouter();
   const [pdvEnabled, setPdvEnabled] = useState(false);
 
+  const commitSha = process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA?.slice(0, 7) || 'dev';
+  const appVersion = `v1.3a+${commitSha}`;
+
   const vegetalActive = modules.some((m) => m.id === "vegetal" && m.isActive);
   const aviculturaActive = modules.some((m) => m.id === "avicultura" && m.isActive);
 
@@ -172,6 +176,7 @@ export function DashboardSidebar({ modules }: DashboardSidebarProps) {
         { title: "Visão Geral", href: "/campo/historico", icon: ScrollText },
         { title: "Topologia do Campo", href: "/areas", icon: Map },
         { title: "Manejo Vegetal", href: "/campo", icon: Wheat },
+        { title: "Cronograma de Safras", href: "/campo/planejamento", icon: Calendar },
         { title: "Lotes & Rastreabilidade", href: "/campo/lotes", icon: Package },
       ]
     : [];
@@ -195,6 +200,7 @@ export function DashboardSidebar({ modules }: DashboardSidebarProps) {
   ];
 
   const configItems: SidebarItem[] = [
+    { title: "Catálogo de Culturas", href: "/configuracoes/culturas", icon: Sprout },
     { title: "Estoque / Insumos", href: "/estoque", icon: Boxes },
     { title: "Fornecedores", href: "/clientes/fornecedores", icon: Users },
     { title: "Configurações do Sítio", href: "/configuracoes", icon: Settings },
@@ -314,6 +320,12 @@ export function DashboardSidebar({ modules }: DashboardSidebarProps) {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+
+        <div className="border-t border-green-800/50 px-2 pb-3 pt-2 text-center">
+          <p className="text-[10px] text-green-500/60">
+            Sítio Micrantha <span className="font-mono">{appVersion}</span>
+          </p>
+        </div>
       </SidebarFooter>
     </Sidebar>
   );
