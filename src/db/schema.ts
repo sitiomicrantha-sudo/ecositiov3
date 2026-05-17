@@ -302,6 +302,8 @@ export const poultryLocations = pgTable("poultry_locations", {
   capacity: integer("capacity"),
   status: poultryLocationStatusEnum("status").notNull().default("liberado"),
   sanitaryVoidStart: timestamp("sanitary_void_start"),
+  associatedFieldId: integer("associated_field_id")
+    .references(() => fields.id, { onDelete: "set null" }),
   isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -471,6 +473,7 @@ export const fieldsRelations = relations(fields, ({ one, many }) => ({
     references: [glebes.id],
   }),
   beds: many(beds),
+  poultryLocation: many(poultryLocations),
 }));
 
 export const bedsRelations = relations(beds, ({ one, many }) => ({
@@ -536,7 +539,11 @@ export const fieldActivitiesRelations = relations(
   })
 );
 
-export const poultryLocationsRelations = relations(poultryLocations, ({ many }) => ({
+export const poultryLocationsRelations = relations(poultryLocations, ({ one, many }) => ({
+  field: one(fields, {
+    fields: [poultryLocations.associatedFieldId],
+    references: [fields.id],
+  }),
   placements: many(poultryPlacements),
   dailyRecords: many(poultryDailyRecords),
   healthEvents: many(poultryHealthEvents),

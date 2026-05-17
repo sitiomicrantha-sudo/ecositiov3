@@ -11,6 +11,9 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
 } from "@/components/ui/sidebar";
 import {
   DropdownMenu,
@@ -19,25 +22,31 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  Map,
   Sprout,
   Bird,
   DollarSign,
   Settings,
   ChevronDown,
+  ChevronRight,
   Home,
   Leaf,
   Wallet,
   ShoppingCart,
   ScrollText,
   Package,
-  MapPin,
-  ArrowRightLeft,
+  Map,
   ClipboardList,
   Pill,
   Dna,
+  BarChart3,
+  Wheat,
+  MapPin,
+  Store,
+  Boxes,
+  type LucideIcon,
 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
+import { useState } from "react";
 
 interface Module {
   id: string;
@@ -50,6 +59,100 @@ interface DashboardSidebarProps {
   modules: Module[];
 }
 
+interface SidebarItem {
+  title: string;
+  href: string;
+  icon: LucideIcon;
+  disabled?: boolean;
+}
+
+interface SidebarAccordionGroupProps {
+  label: string;
+  icon: LucideIcon;
+  defaultOpen: boolean;
+  items: SidebarItem[];
+  pathname: string;
+  groupActivePrefixes: string[];
+}
+
+function SidebarAccordionGroup({
+  label,
+  icon: GroupIcon,
+  defaultOpen,
+  items,
+  pathname,
+  groupActivePrefixes,
+}: SidebarAccordionGroupProps) {
+  const router = useRouter();
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+
+  const isGroupActive = groupActivePrefixes.some((prefix) =>
+    pathname === prefix || pathname.startsWith(prefix + "/")
+  );
+
+  return (
+    <SidebarGroup>
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs font-semibold uppercase tracking-wider text-green-300 hover:bg-green-800/50 transition-colors"
+      >
+        <GroupIcon className="size-3.5 shrink-0" />
+        <span className="flex-1 text-left">{label}</span>
+        <ChevronRight
+          className={`size-3.5 shrink-0 transition-transform duration-200 ${isOpen ? "rotate-90" : ""}`}
+        />
+      </button>
+      <SidebarGroupContent>
+        <div
+          className={`overflow-hidden transition-all duration-300 ease-in-out ${
+            isOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
+          }`}
+        >
+          <SidebarMenu>
+            {items.map((item) => {
+              const isActive =
+                pathname === item.href || pathname.startsWith(item.href + "/");
+              const isDisabled = item.disabled;
+
+              return (
+                <SidebarMenuItem key={item.href}>
+                  <SidebarMenuSub>
+                    <SidebarMenuSubItem>
+                      <SidebarMenuSubButton
+                        isActive={isActive && !isDisabled}
+                        onClick={() => {
+                          if (!isDisabled) router.push(item.href);
+                        }}
+                        className={`group flex items-center gap-2 px-2 py-1.5 text-sm rounded-md transition-colors ${
+                          isDisabled
+                            ? "opacity-40 cursor-not-allowed pointer-events-none"
+                            : isActive
+                              ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                              : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+                        }`}
+                      >
+                        <item.icon
+                          className={`size-4 shrink-0 ${isActive && !isDisabled ? "text-emerald-400" : "text-green-400/70"}`}
+                        />
+                        <span className="flex-1 truncate">{item.title}</span>
+                        {isDisabled && (
+                          <span className="text-[10px] uppercase tracking-wide text-green-500/60">
+                            Em breve
+                          </span>
+                        )}
+                      </SidebarMenuSubButton>
+                    </SidebarMenuSubItem>
+                  </SidebarMenuSub>
+                </SidebarMenuItem>
+              );
+            })}
+          </SidebarMenu>
+        </div>
+      </SidebarGroupContent>
+    </SidebarGroup>
+  );
+}
+
 export function DashboardSidebar({ modules }: DashboardSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -57,37 +160,33 @@ export function DashboardSidebar({ modules }: DashboardSidebarProps) {
   const vegetalActive = modules.some((m) => m.id === "vegetal" && m.isActive);
   const aviculturaActive = modules.some((m) => m.id === "avicultura" && m.isActive);
 
-  const operationsItems = [
-    { title: "Topologia / Áreas", href: "/areas", icon: Map },
-    ...(vegetalActive
-      ? [
-          { title: "Caderno de Campo", href: "/campo", icon: Sprout },
-          { title: "Histórico do Solo", href: "/campo/historico", icon: ScrollText },
-          { title: "Lotes de Colheita", href: "/campo/lotes", icon: Package },
-        ]
-      : []),
-  ];
-
-  const aviculturaItems = aviculturaActive
+  const vegetalItems: SidebarItem[] = vegetalActive
     ? [
-        { title: "Visão Geral", href: "/avicultura", icon: Bird },
-        { title: "Locais Físicos", href: "/avicultura/locais", icon: MapPin },
-        { title: "Alojamentos", href: "/avicultura/alojamentos", icon: ArrowRightLeft },
+        { title: "Visão Geral", href: "/campo/historico", icon: ScrollText },
+        { title: "Topologia do Campo", href: "/areas", icon: Map },
+        { title: "Manejo Vegetal", href: "/campo", icon: Wheat },
+        { title: "Lotes & Rastreabilidade", href: "/campo/lotes", icon: Package },
+      ]
+    : [];
+
+  const aviculturaItems: SidebarItem[] = aviculturaActive
+    ? [
+        { title: "Visão Geral", href: "/avicultura", icon: BarChart3 },
         { title: "Lotes & Linhagens", href: "/avicultura/lotes", icon: Dna },
+        { title: "Locais & Alojamentos", href: "/avicultura/alojamentos", icon: MapPin },
         { title: "Manejo Diário", href: "/avicultura/operacoes", icon: ClipboardList },
         { title: "Prontuário Sanitário", href: "/avicultura/prontuario", icon: Pill },
       ]
     : [];
 
-  const salesItems = [
-    { title: "PDV / Caixa", href: "/pdv", icon: ShoppingCart },
-    { title: "Estoque / Germoplasma", href: "/estoque", icon: Leaf },
-    { title: "Financeiro", href: "/financeiro", icon: Wallet },
-    { title: "Clientes", href: "/clientes", icon: DollarSign },
+  const financeiroItems: SidebarItem[] = [
+    { title: "Fluxo de Caixa", href: "/financeiro", icon: Wallet },
+    { title: "PDV / Delivery", href: "/pdv", icon: Store, disabled: true },
   ];
 
-  const settingsItems = [
-    { title: "Configurações", href: "/configuracoes", icon: Settings },
+  const configItems: SidebarItem[] = [
+    { title: "Estoque / Insumos", href: "/estoque", icon: Boxes },
+    { title: "Configurações do Sítio", href: "/configuracoes", icon: Settings },
   ];
 
   return (
@@ -135,101 +234,49 @@ export function DashboardSidebar({ modules }: DashboardSidebarProps) {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Operações */}
-        {operationsItems.length > 1 && (
-          <SidebarGroup>
-            <SidebarGroupLabel className="text-green-300">
-              Operações
-            </SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {operationsItems.map((item) => (
-                  <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton
-                      isActive={pathname === item.href}
-                      onClick={() => router.push(item.href)}
-                      className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground"
-                    >
-                      <item.icon className="size-4" />
-                      <span>{item.title}</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
+        {/* Produção Vegetal */}
+        {vegetalItems.length > 0 && (
+          <SidebarAccordionGroup
+            label="Produção Vegetal"
+            icon={Leaf}
+            defaultOpen={true}
+            items={vegetalItems}
+            pathname={pathname}
+            groupActivePrefixes={["/campo", "/areas"]}
+          />
         )}
 
-        {/* Avicultura */}
+        {/* Avicultura Caipira */}
         {aviculturaItems.length > 0 && (
-          <SidebarGroup>
-            <SidebarGroupLabel className="text-green-300">
-              Avicultura
-            </SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {aviculturaItems.map((item) => (
-                  <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton
-                      isActive={pathname === item.href || pathname.startsWith(item.href + "/")}
-                      onClick={() => router.push(item.href)}
-                      className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground"
-                    >
-                      <item.icon className="size-4" />
-                      <span>{item.title}</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
+          <SidebarAccordionGroup
+            label="Avicultura Caipira"
+            icon={Bird}
+            defaultOpen={false}
+            items={aviculturaItems}
+            pathname={pathname}
+            groupActivePrefixes={["/avicultura"]}
+          />
         )}
 
-        {/* Estoque & Vendas */}
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-green-300">
-            Estoque & Vendas
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {salesItems.map((item) => (
-                <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton
-                    isActive={pathname === item.href}
-                    onClick={() => router.push(item.href)}
-                    className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground"
-                  >
-                    <item.icon className="size-4" />
-                    <span>{item.title}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {/* Financeiro & Vendas */}
+        <SidebarAccordionGroup
+          label="Financeiro & Vendas"
+          icon={DollarSign}
+          defaultOpen={false}
+          items={financeiroItems}
+          pathname={pathname}
+          groupActivePrefixes={["/financeiro", "/pdv", "/clientes"]}
+        />
 
-        {/* Configurações */}
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-green-300">
-            Configurações
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {settingsItems.map((item) => (
-                <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton
-                    isActive={pathname === item.href}
-                    onClick={() => router.push(item.href)}
-                    className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground"
-                  >
-                    <item.icon className="size-4" />
-                    <span>{item.title}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {/* Configurações & Estoque */}
+        <SidebarAccordionGroup
+          label="Configurações & Estoque"
+          icon={Settings}
+          defaultOpen={true}
+          items={configItems}
+          pathname={pathname}
+          groupActivePrefixes={["/estoque", "/configuracoes"]}
+        />
       </SidebarContent>
 
       <SidebarFooter className="border-t border-green-800">

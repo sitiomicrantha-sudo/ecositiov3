@@ -1,14 +1,14 @@
 "use server";
 
 import { db } from "@/db";
-import { beds, plantings, fieldActivities, inventoryItems, fields, glebes } from "@/db/schema";
-import { eq, or, desc, and } from "drizzle-orm";
+import { beds, plantings, fieldActivities, inventoryItems, fields, glebes, poultryLocations, poultryPlacements, poultryHealthEvents, poultryBatches } from "@/db/schema";
+import { eq, or, desc, and, isNull } from "drizzle-orm";
 import type { ActionResult } from "./topology";
 
 export type DossierTimelineEntry = {
   id: number;
   date: Date;
-  type: "PLANTING" | "ACTIVITY" | "HARVEST";
+  type: "PLANTING" | "ACTIVITY" | "HARVEST" | "POULTRY_PLACEMENT" | "POULTRY_HEALTH";
   itemName: string | null;
   activityType: string | null;
   category: string | null;
@@ -16,6 +16,10 @@ export type DossierTimelineEntry = {
   notes: string | null;
   plantingStatus: string | null;
   harvestedAt: Date | null;
+  withdrawalActive: boolean | null;
+  treatmentType: string | null;
+  batchCode: string | null;
+  locationName: string | null;
 };
 
 export type BedDossier = {
@@ -95,7 +99,11 @@ export async function getBedOpacDossier(bedId: number): Promise<ActionResult<Bed
         quantity: null,
         notes: null,
         plantingStatus: p.status,
-        harvestedAt: p.harvestedAt,
+        harvestedAt: null,
+        withdrawalActive: null,
+        treatmentType: null,
+        batchCode: null,
+        locationName: null,
       });
 
       if (p.harvestedAt) {
@@ -110,6 +118,10 @@ export async function getBedOpacDossier(bedId: number): Promise<ActionResult<Bed
           notes: null,
           plantingStatus: p.status,
           harvestedAt: null,
+          withdrawalActive: null,
+          treatmentType: null,
+          batchCode: null,
+          locationName: null,
         });
       }
     }
@@ -126,7 +138,98 @@ export async function getBedOpacDossier(bedId: number): Promise<ActionResult<Bed
         notes: a.notes,
         plantingStatus: null,
         harvestedAt: null,
+        withdrawalActive: null,
+        treatmentType: null,
+        batchCode: null,
+        locationName: null,
       });
+    }
+
+    const fieldId = bed.fieldId;
+    if (fieldId) {
+      const poultryLocation = await db.query.poultryLocations.findFirst({
+        where: eq(poultryLocations.associatedFieldId, fieldId),
+      });
+
+      if (poultryLocation) {
+        const placements = await db.query.poultryPlacements.findMany({
+          where: eq(poultryPlacements.locationId, poultryLocation.id),
+          with: {
+            batch: true,
+          },
+          orderBy: [desc(poultryPlacements.startedAt)],
+        });
+
+        for (const placement of placements) {
+          timeline.push({
+            id: placement.id + 300000,
+            date: placement.startedAt,
+            type: "POULTRY_PLACEMENT",
+            itemName: null,
+            activityType: null,
+            category: null,
+            quantity: null,
+            notes: placement.endedAt ? "Alojamento encerrado" : null,
+            plantingStatus: null,
+            harvestedAt: null,
+            withdrawalActive: null,
+            treatmentType: null,
+            batchCode: (placement.batch as { batchCode: string } | null)?.batchCode || null,
+            locationName: poultryLocation.name,
+          });
+
+          if (placement.endedAt) {
+            timeline.push({
+              id: placement.id + 400000,
+              date: placement.endedAt,
+              type: "POULTRY_PLACEMENT",
+              itemName: null,
+              activityType: null,
+              category: null,
+              quantity: null,
+              notes: "Lote removido do local",
+              plantingStatus: null,
+              harvestedAt: null,
+              withdrawalActive: null,
+              treatmentType: null,
+              batchCode: (placement.batch as { batchCode: string } | null)?.batchCode || null,
+              locationName: poultryLocation.name,
+            });
+          }
+        }
+
+        const healthEvents = await db.query.poultryHealthEvents.findMany({
+          where: eq(poultryHealthEvents.locationId, poultryLocation.id),
+          with: {
+            batch: true,
+          },
+          orderBy: [desc(poultryHealthEvents.appliedAt)],
+        });
+
+        const now = new Date();
+        for (const event of healthEvents) {
+          const withdrawalEnd = new Date(event.appliedAt);
+          withdrawalEnd.setDate(withdrawalEnd.getDate() + (event.withdrawalDays || 0));
+          const isActiveWithdrawal = event.withdrawalDays > 0 && withdrawalEnd > now;
+
+          timeline.push({
+            id: event.id + 500000,
+            date: event.appliedAt,
+            type: "POULTRY_HEALTH",
+            itemName: event.productName,
+            activityType: null,
+            category: null,
+            quantity: null,
+            notes: event.notes,
+            plantingStatus: null,
+            harvestedAt: null,
+            withdrawalActive: isActiveWithdrawal,
+            treatmentType: event.treatmentType,
+            batchCode: (event.batch as { batchCode: string } | null)?.batchCode || null,
+            locationName: poultryLocation.name,
+          });
+        }
+      }
     }
 
     timeline.sort((a, b) => b.date.getTime() - a.date.getTime());
@@ -225,5 +328,144 @@ export async function getActiveBedsForDossier(): Promise<
     return { success: true, data: result };
   } catch {
     return { success: false, error: "Erro ao buscar canteiros" };
+  }
+}
+
+export type PoultryFieldHistory = {
+  poultryLocation: {
+    id: number;
+    name: string;
+    shortCode: string | null;
+    locationType: string;
+  };
+  recentPlantings: {
+    id: number;
+    itemName: string | null;
+    plantedAt: Date;
+    harvestedAt: Date | null;
+    status: string;
+    bedName: string | null;
+    bedShortCode: string | null;
+  }[];
+  recentActivities: {
+    id: number;
+    activityType: string | null;
+    category: string | null;
+    date: Date;
+    quantity: string | null;
+    notes: string | null;
+    bedName: string | null;
+  }[];
+};
+
+export async function getPoultryFieldHistory(
+  poultryLocationId: number
+): Promise<ActionResult<PoultryFieldHistory>> {
+  try {
+    const poultryLocation = await db.query.poultryLocations.findFirst({
+      where: eq(poultryLocations.id, poultryLocationId),
+    });
+
+    if (!poultryLocation) {
+      return { success: false, error: "Local de avicultura não encontrado" };
+    }
+
+    if (!poultryLocation.associatedFieldId) {
+      return {
+        success: true,
+        data: {
+          poultryLocation: {
+            id: poultryLocation.id,
+            name: poultryLocation.name,
+            shortCode: poultryLocation.shortCode,
+            locationType: poultryLocation.locationType,
+          },
+          recentPlantings: [],
+          recentActivities: [],
+        },
+      };
+    }
+
+    const fieldId = poultryLocation.associatedFieldId;
+
+    const bedsInField = await db.query.beds.findMany({
+      where: eq(beds.fieldId, fieldId),
+    });
+
+    const bedIds = bedsInField.map((b) => b.id);
+
+    let recentPlantings: {
+      id: number;
+      itemName: string | null;
+      plantedAt: Date;
+      harvestedAt: Date | null;
+      status: string;
+      bedName: string | null;
+      bedShortCode: string | null;
+    }[] = [];
+
+    let recentActivities: {
+      id: number;
+      activityType: string | null;
+      category: string | null;
+      date: Date;
+      quantity: string | null;
+      notes: string | null;
+      bedName: string | null;
+    }[] = [];
+
+    if (bedIds.length > 0) {
+      const plantingsInField = await db.query.plantings.findMany({
+        where: (plantings, { inArray }) => inArray(plantings.bedId, bedIds),
+        with: {
+          item: true,
+          bed: true,
+        },
+        orderBy: [desc(plantings.plantedAt)],
+        limit: 10,
+      });
+
+      recentPlantings = plantingsInField.map((p) => ({
+        id: p.id,
+        itemName: (p.item as { name: string } | null)?.name || null,
+        plantedAt: p.plantedAt,
+        harvestedAt: p.harvestedAt,
+        status: p.status,
+        bedName: (p.bed as { name: string } | null)?.name || null,
+        bedShortCode: (p.bed as { shortCode: string } | null)?.shortCode || null,
+      }));
+
+      const activitiesInField = await db.query.fieldActivities.findMany({
+        where: (fieldActivities, { inArray }) => inArray(fieldActivities.bedId, bedIds),
+        orderBy: [desc(fieldActivities.date)],
+        limit: 10,
+      });
+
+      recentActivities = activitiesInField.map((a) => ({
+        id: a.id,
+        activityType: a.activityType,
+        category: a.category,
+        date: a.date,
+        quantity: a.quantity,
+        notes: a.notes,
+        bedName: bedsInField.find((b) => b.id === a.bedId)?.name || null,
+      }));
+    }
+
+    return {
+      success: true,
+      data: {
+        poultryLocation: {
+          id: poultryLocation.id,
+          name: poultryLocation.name,
+          shortCode: poultryLocation.shortCode,
+          locationType: poultryLocation.locationType,
+        },
+        recentPlantings,
+        recentActivities,
+      },
+    };
+  } catch {
+    return { success: false, error: "Erro ao buscar histórico do talhão" };
   }
 }

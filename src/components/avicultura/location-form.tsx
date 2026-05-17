@@ -25,9 +25,17 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Plus, Loader2, Info, AlertTriangle } from "lucide-react";
-import { createPoultryLocation, updatePoultryLocation } from "@/actions/poultry";
+import { createPoultryLocation, updatePoultryLocation, getActiveFieldsForSelect } from "@/actions/poultry";
 import { calculateSuggestedCapacity, locationTypeLabels } from "@/lib/poultry-utils";
 import type { poultryLocations } from "@/db/schema";
+
+type FieldOption = {
+  id: number;
+  name: string;
+  shortCode: string | null;
+  glebeName: string | null;
+  glebeShortCode: string | null;
+};
 
 const locationFormSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório").max(255),
@@ -39,6 +47,7 @@ const locationFormSchema = z.object({
   capacity: z.string().regex(/^\d+$/, "Capacidade deve ser um número inteiro").optional().nullable(),
   status: z.enum(["liberado", "vazio_sanitario"]),
   sanitaryVoidStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data inválida").optional().nullable(),
+  associatedFieldId: z.string().regex(/^\d+$/, "Selecione um talhão").optional().nullable(),
 });
 
 type LocationFormValues = z.infer<typeof locationFormSchema>;
@@ -53,6 +62,7 @@ export function LocationForm({ location, onSuccess, triggerLabel }: LocationForm
   const [open, setOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [suggestedCapacity, setSuggestedCapacity] = useState<number | null>(null);
+  const [fields, setFields] = useState<FieldOption[]>([]);
 
   const today = new Date().toISOString().split("T")[0];
 
@@ -66,8 +76,17 @@ export function LocationForm({ location, onSuccess, triggerLabel }: LocationForm
       capacity: null,
       status: "liberado",
       sanitaryVoidStart: null,
+      associatedFieldId: null,
     },
   });
+
+  useEffect(() => {
+    if (open) {
+      getActiveFieldsForSelect().then((res) => {
+        if (res.success) setFields(res.data);
+      });
+    }
+  }, [open]);
 
   useEffect(() => {
     if (location && open) {
@@ -81,6 +100,7 @@ export function LocationForm({ location, onSuccess, triggerLabel }: LocationForm
         sanitaryVoidStart: location.sanitaryVoidStart
           ? new Date(location.sanitaryVoidStart).toISOString().split("T")[0]
           : null,
+        associatedFieldId: location.associatedFieldId?.toString() || null,
       });
     }
   }, [location, open, form]);
@@ -203,6 +223,34 @@ export function LocationForm({ location, onSuccess, triggerLabel }: LocationForm
                         <option value="pinteiro">Pinteiro</option>
                       </select>
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="associatedFieldId"
+                render={({ field }) => (
+                  <FormItem className="col-span-2">
+                    <FormLabel>Área Vegetal Correspondente (Talhão)</FormLabel>
+                    <FormControl>
+                      <select
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        {...field}
+                        value={field.value || ""}
+                      >
+                        <option value="">Nenhum — Área independente</option>
+                        {fields.map((f) => (
+                          <option key={f.id} value={f.id.toString()}>
+                            {f.shortCode ? `[${f.shortCode}] ` : ""}{f.name}{f.glebeName ? ` — ${f.glebeName}` : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </FormControl>
+                    <FormDescription>
+                      Vincule este local a um talhão para integrar o histórico de solo.
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}

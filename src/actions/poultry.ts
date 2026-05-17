@@ -7,6 +7,8 @@ import {
   poultryLocations,
   poultryPlacements,
   fieldActivities,
+  fields,
+  glebes,
 } from "@/db/schema";
 import { eq, and, isNull, desc, asc, inArray } from "drizzle-orm";
 import { z } from "zod";
@@ -26,6 +28,7 @@ const poultryLocationSchema = z.object({
   capacity: z.string().regex(/^\d+$/, "Capacidade deve ser um número inteiro").optional().nullable(),
   status: z.enum(["liberado", "vazio_sanitario"]).default("liberado"),
   sanitaryVoidStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data deve estar no formato YYYY-MM-DD").optional().nullable(),
+  associatedFieldId: z.string().regex(/^\d+$/, "Selecione um talhão válido").optional().nullable(),
 });
 
 const poultryBatchSchema = z.object({
@@ -81,6 +84,7 @@ export async function createPoultryLocation(
         capacity: validated.capacity ? parseInt(validated.capacity, 10) : null,
         status: validated.status,
         sanitaryVoidStart: validated.sanitaryVoidStart ? new Date(validated.sanitaryVoidStart) : null,
+        associatedFieldId: validated.associatedFieldId ? parseInt(validated.associatedFieldId, 10) : null,
       })
       .returning();
 
@@ -139,6 +143,7 @@ export async function updatePoultryLocation(
         capacity: validated.capacity ? parseInt(validated.capacity, 10) : null,
         status: validated.status,
         sanitaryVoidStart: validated.sanitaryVoidStart ? new Date(validated.sanitaryVoidStart) : null,
+        associatedFieldId: validated.associatedFieldId ? parseInt(validated.associatedFieldId, 10) : null,
         updatedAt: new Date(),
       })
       .where(eq(poultryLocations.id, id))
@@ -182,6 +187,40 @@ export async function restorePoultryLocation(
     return { success: true, data: updated };
   } catch {
     return { success: false, error: "Erro ao restaurar localização" };
+  }
+}
+
+export async function getActiveFieldsForSelect(): Promise<
+  ActionResult<
+    {
+      id: number;
+      name: string;
+      shortCode: string | null;
+      glebeName: string | null;
+      glebeShortCode: string | null;
+    }[]
+  >
+> {
+  try {
+    const fieldsList = await db.query.fields.findMany({
+      where: eq(fields.isActive, true),
+      with: {
+        glebe: true,
+      },
+      orderBy: (fields, { asc }) => [asc(fields.name)],
+    });
+
+    const result = fieldsList.map((f) => ({
+      id: f.id,
+      name: f.name,
+      shortCode: f.shortCode,
+      glebeName: f.glebe?.name || null,
+      glebeShortCode: f.glebe?.shortCode || null,
+    }));
+
+    return { success: true, data: result };
+  } catch {
+    return { success: false, error: "Erro ao buscar talhões ativos" };
   }
 }
 

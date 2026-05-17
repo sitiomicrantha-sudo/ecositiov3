@@ -9,6 +9,8 @@ import {
   Calendar,
   Package,
   Clock,
+  Bird,
+  AlertTriangle,
 } from "lucide-react";
 import type { DossierTimelineEntry } from "@/actions/soil-history";
 
@@ -103,6 +105,38 @@ function getEntryConfig(entry: DossierTimelineEntry) {
       badgeText: "text-amber-800",
       categoryLabel: "Colheita",
       categoryBadge: "bg-amber-100 text-amber-800",
+    };
+  }
+
+  if (entry.type === "POULTRY_PLACEMENT") {
+    return {
+      label: "Alojamento de Aves",
+      icon: Bird,
+      badge: "bg-lime-100 text-lime-800",
+      badgeText: "text-lime-800",
+      categoryLabel: entry.batchCode ? `Lote ${entry.batchCode}` : "Avicultura",
+      categoryBadge: "bg-lime-100 text-lime-800",
+    };
+  }
+
+  if (entry.type === "POULTRY_HEALTH") {
+    if (entry.withdrawalActive) {
+      return {
+        label: `Tratamento — ${entry.itemName || "Produto"}`,
+        icon: AlertTriangle,
+        badge: "bg-red-100 text-red-800 animate-pulse",
+        badgeText: "text-red-800",
+        categoryLabel: "⚠️ Carência Ativa",
+        categoryBadge: "bg-red-100 text-red-800 animate-pulse",
+      };
+    }
+    return {
+      label: `Tratamento — ${entry.itemName || "Produto"}`,
+      icon: Leaf,
+      badge: "bg-green-100 text-green-800",
+      badgeText: "text-green-800",
+      categoryLabel: entry.treatmentType === "fitoterapico_floral" ? "Fitoterápico/Floral" : entry.treatmentType === "vacina_profilatica" ? "Vacina/Profilaxia" : "Alopático",
+      categoryBadge: "bg-green-100 text-green-800",
     };
   }
 
@@ -208,6 +242,16 @@ export function SoilTimeline({ entries }: SoilTimelineProps) {
                     Qtd: {parseFloat(entry.quantity).toLocaleString("pt-BR")}
                   </span>
                 )}
+                {entry.batchCode && entry.type === "POULTRY_PLACEMENT" && (
+                  <span className="font-medium text-lime-700">
+                    Lote: {entry.batchCode}
+                  </span>
+                )}
+                {entry.locationName && (
+                  <span className="text-xs text-gray-400">
+                    ({entry.locationName})
+                  </span>
+                )}
               </div>
 
               {entry.notes && (
@@ -219,6 +263,12 @@ export function SoilTimeline({ entries }: SoilTimelineProps) {
               {entry.type === "PLANTING" && entry.harvestedAt && (
                 <p className="mt-1 text-xs text-gray-500 print:text-gray-600">
                   Colhido em {formatDate(entry.harvestedAt)}
+                </p>
+              )}
+
+              {entry.type === "POULTRY_HEALTH" && entry.withdrawalActive && (
+                <p className="mt-1 text-xs font-medium text-red-600 animate-pulse">
+                  ⚠️ Período de carência ativo — produto não pode ser comercializado como orgânico
                 </p>
               )}
             </div>
