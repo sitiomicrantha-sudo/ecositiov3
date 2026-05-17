@@ -120,3 +120,12 @@ Esta seção serve como diretriz de priorização de contexto (*Context Window*)
 ### Fase 5: Burocracia, Criatório e Finalização
 * **Submódulo 2.3 (Criatório):** Criar lógicas específicas de incubação e ovoscopia.
 * **Módulo 6 (NFP-e):** Plugar a lógica de faturamento na SEFAZ e assinatura com certificado digital usando as vendas processadas nas fases anteriores.
+
+
+
+
+
+### NOTAS E MENOS ###
+* Adicionar um modulo de tarefas a realizar, integrado aos modulos existentes. Incluir um card no home com as tarefas.
+ex. roçar talhao x, limpar baia x do galinheiro
+* Adicionar uma janela de chat ao deskboar com ia integrada. Para executar tarefas como: Esqueci de registrar a alimentacao das galinhas essa semana, verifique os dias que nao registrei nessa semana e faça o registro com valores medios das ultimas alimentacoes;

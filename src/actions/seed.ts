@@ -248,24 +248,26 @@ export async function seedDatabase(): Promise<ActionResult<string>> {
     const [lotePoedeiras] = await db
       .insert(poultryBatches)
       .values({
-        name: "Lote Poedeiras Rústicas",
+        batchCode: "LOT-POD-001",
         breed: "Rhode Island Red",
         purpose: "postura",
         initialQuantity: 50,
-        currentQuantity: 47,
-        hatchDate: daysAgo(180),
+        activeQuantity: 47,
+        birthDate: dateStr(180),
+        arrivalDate: dateStr(175),
       })
       .returning();
 
     const [loteRecria] = await db
       .insert(poultryBatches)
       .values({
-        name: "Lote Recria",
+        batchCode: "LOT-REC-001",
         breed: "Pesadão Branco",
-        purpose: "dupla_aptidao",
+        purpose: "misto",
         initialQuantity: 100,
-        currentQuantity: 98,
-        hatchDate: daysAgo(45),
+        activeQuantity: 98,
+        birthDate: dateStr(45),
+        arrivalDate: dateStr(40),
       })
       .returning();
 

@@ -107,10 +107,10 @@ export async function getPoultryOverview(): Promise<
 > {
   try {
     const batches = await db.query.poultryBatches.findMany({
-      where: eq(poultryBatches.status, "active"),
+      where: eq(poultryBatches.isActive, true),
     });
 
-    const totalBirds = batches.reduce((sum, b) => sum + b.currentQuantity, 0);
+    const totalBirds = batches.reduce((sum, b) => sum + b.activeQuantity, 0);
 
     return {
       success: true,
@@ -161,7 +161,7 @@ export async function getRecentActivities(): Promise<
       bedName: (a.bed as { name: string } | null)?.name || null,
       bedShortCode: (a.bed as { shortCode: string | null } | null)?.shortCode || null,
       itemName: (a.item as { name: string } | null)?.name || null,
-      batchName: (a.batch as { name: string } | null)?.name || null,
+      batchName: (a.batch as { batchCode: string } | null)?.batchCode || null,
     }));
 
     return { success: true, data: enriched };

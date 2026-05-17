@@ -496,7 +496,7 @@ export function ActivityForm({ activityType, open, onOpenChange, onSuccess }: Ac
                           <option value="">Selecione o lote</option>
                           {batches.map((batch) => (
                             <option key={batch.id} value={batch.id}>
-                              {batch.name} ({batch.breed})
+                              {batch.batchCode} ({batch.breed})
                             </option>
                           ))}
                         </select>

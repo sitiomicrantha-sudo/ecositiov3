@@ -20,48 +20,20 @@ import { getAvesActivities } from "@/actions/field-activities";
 import type { poultryBatches, poultryIndividuals } from "@/db/schema";
 
 type Batch = typeof poultryBatches.$inferSelect;
-type Individual = {
-  id: number;
-  ringId: string;
-  name: string | null;
-  gender: "macho" | "femea";
-  fatherId: number | null;
-  motherId: number | null;
-  batchId: number | null;
-  status: "ativo" | "descartado" | "morto";
-  createdAt: Date;
-  batchName: string | null;
+type Individual = typeof poultryIndividuals.$inferSelect & {
+  batch: typeof poultryBatches.$inferSelect | null;
 };
 
 interface PedigreeData {
-  individual: {
-    id: number;
-    ringId: string;
-    name: string | null;
-    gender: "macho" | "femea";
-    fatherId: number | null;
-    motherId: number | null;
-    batchId: number | null;
-    status: "ativo" | "descartado" | "morto";
-    createdAt: Date;
-    batch: {
-      id: number;
-      name: string;
-      breed: string;
-      purpose: "postura" | "corte" | "dupla_aptidao" | "matriz_genetica";
-      initialQuantity: number;
-      currentQuantity: number;
-      hatchDate: Date;
-      status: "active" | "retired" | "sold";
-      createdAt: Date;
-    } | null;
+  individual: typeof poultryIndividuals.$inferSelect & {
+    batch: typeof poultryBatches.$inferSelect | null;
   };
-  father: { id: number; ringId: string; name: string | null; gender: "macho" | "femea"; status: "ativo" | "descartado" | "morto"; fatherId: number | null; motherId: number | null; batchId: number | null; createdAt: Date } | null;
-  mother: { id: number; ringId: string; name: string | null; gender: "macho" | "femea"; status: "ativo" | "descartado" | "morto"; fatherId: number | null; motherId: number | null; batchId: number | null; createdAt: Date } | null;
-  paternalGrandfather: { id: number; ringId: string; name: string | null; gender: "macho" | "femea"; status: "ativo" | "descartado" | "morto"; fatherId: number | null; motherId: number | null; batchId: number | null; createdAt: Date } | null;
-  paternalGrandmother: { id: number; ringId: string; name: string | null; gender: "macho" | "femea"; status: "ativo" | "descartado" | "morto"; fatherId: number | null; motherId: number | null; batchId: number | null; createdAt: Date } | null;
-  maternalGrandfather: { id: number; ringId: string; name: string | null; gender: "macho" | "femea"; status: "ativo" | "descartado" | "morto"; fatherId: number | null; motherId: number | null; batchId: number | null; createdAt: Date } | null;
-  maternalGrandmother: { id: number; ringId: string; name: string | null; gender: "macho" | "femea"; status: "ativo" | "descartado" | "morto"; fatherId: number | null; motherId: number | null; batchId: number | null; createdAt: Date } | null;
+  father: typeof poultryIndividuals.$inferSelect | null;
+  mother: typeof poultryIndividuals.$inferSelect | null;
+  paternalGrandfather: typeof poultryIndividuals.$inferSelect | null;
+  paternalGrandmother: typeof poultryIndividuals.$inferSelect | null;
+  maternalGrandfather: typeof poultryIndividuals.$inferSelect | null;
+  maternalGrandmother: typeof poultryIndividuals.$inferSelect | null;
 }
 
 interface AvesActivity {

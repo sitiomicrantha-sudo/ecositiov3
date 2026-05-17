@@ -10,10 +10,10 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Bird, Dna } from "lucide-react";
-import type { poultryIndividuals } from "@/db/schema";
+import type { poultryIndividuals, poultryBatches } from "@/db/schema";
 
 type Individual = typeof poultryIndividuals.$inferSelect & {
-  batchName: string | null;
+  batch: typeof poultryBatches.$inferSelect | null;
 };
 
 interface IndividualsTableProps {
@@ -103,7 +103,7 @@ export function IndividualsTable({ individuals, onViewPedigree }: IndividualsTab
                   </span>
                 </TableCell>
                 <TableCell className="hidden text-gray-500 md:table-cell">
-                  {ind.batchName || "—"}
+                  {ind.batch?.batchCode || "—"}
                 </TableCell>
                 <TableCell className="hidden lg:table-cell">
                   <span

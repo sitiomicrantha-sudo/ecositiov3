@@ -426,8 +426,8 @@ export async function getActiveBatchesForField(): Promise<
 > {
   try {
     const batches = await db.query.poultryBatches.findMany({
-      where: eq(poultryBatches.status, "active"),
-      orderBy: (poultryBatches, { asc }) => [asc(poultryBatches.name)],
+      where: eq(poultryBatches.isActive, true),
+      orderBy: (poultryBatches, { asc }) => [asc(poultryBatches.batchCode)],
     });
 
     return { success: true, data: batches };

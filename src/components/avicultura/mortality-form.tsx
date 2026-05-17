@@ -108,14 +108,14 @@ export function MortalityForm({ batch, open, onOpenChange, onSuccess }: Mortalit
             Registrar Mortalidade
           </DialogTitle>
           <DialogDescription>
-            Baixa de aves do lote &quot;{batch.name}&quot;. A quantidade será
+            Baixa de aves do lote &quot;{batch.batchCode}&quot;. A quantidade será
             deduzida do estoque atual e registrada no diário.
           </DialogDescription>
         </DialogHeader>
 
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           <p>
-            <strong>Quantidade atual:</strong> {batch.currentQuantity} ave(s)
+            <strong>Quantidade atual:</strong> {batch.activeQuantity} ave(s)
           </p>
         </div>
 

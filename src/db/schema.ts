@@ -60,10 +60,20 @@ export const activityTypeEnum = pgEnum("activity_type", [
 ]);
 
 export const poultryPurposeEnum = pgEnum("poultry_purpose", [
-  "postura",
   "corte",
-  "dupla_aptidao",
-  "matriz_genetica",
+  "postura",
+  "misto",
+]);
+
+export const poultryLocationTypeEnum = pgEnum("poultry_location_type", [
+  "galpao",
+  "piquete_rotativo",
+  "pinteiro",
+]);
+
+export const poultryLocationStatusEnum = pgEnum("poultry_location_status", [
+  "liberado",
+  "vazio_sanitario",
 ]);
 
 export const batchStatusEnum = pgEnum("batch_status", [
@@ -277,16 +287,44 @@ export const harvestBatches = pgTable("harvest_batches", {
 // MÓDULO 5: AVICULTURA & GESTÃO GENÉTICA
 // ============================================================
 
-export const poultryBatches = pgTable("poultry_batches", {
+export const poultryLocations = pgTable("poultry_locations", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
-  breed: varchar("breed", { length: 255 }).notNull(),
-  purpose: poultryPurposeEnum("purpose").notNull(),
-  initialQuantity: integer("initial_quantity").notNull(),
-  currentQuantity: integer("current_quantity").notNull(),
-  hatchDate: timestamp("hatch_date").notNull(),
-  status: batchStatusEnum("status").notNull().default("active"),
+  shortCode: varchar("short_code", { length: 10 }),
+  locationType: poultryLocationTypeEnum("location_type").notNull(),
+  areaM2: decimal("area_m2", { precision: 10, scale: 2 }),
+  capacity: integer("capacity"),
+  status: poultryLocationStatusEnum("status").notNull().default("liberado"),
+  sanitaryVoidStart: timestamp("sanitary_void_start"),
+  isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const poultryBatches = pgTable("poultry_batches", {
+  id: serial("id").primaryKey(),
+  batchCode: varchar("batch_code", { length: 30 }).notNull().unique(),
+  breed: varchar("breed", { length: 255 }).notNull(),
+  birthDate: date("birth_date").notNull(),
+  arrivalDate: date("arrival_date").notNull(),
+  initialQuantity: integer("initial_quantity").notNull(),
+  activeQuantity: integer("active_quantity").notNull(),
+  purpose: poultryPurposeEnum("purpose").notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const poultryPlacements = pgTable("poultry_placements", {
+  id: serial("id").primaryKey(),
+  locationId: integer("location_id")
+    .notNull()
+    .references(() => poultryLocations.id, { onDelete: "restrict" }),
+  batchId: integer("batch_id")
+    .notNull()
+    .references(() => poultryBatches.id, { onDelete: "restrict" }),
+  startedAt: timestamp("started_at").defaultNow().notNull(),
+  endedAt: timestamp("ended_at"),
 });
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -459,12 +497,25 @@ export const fieldActivitiesRelations = relations(
   })
 );
 
-export const poultryBatchesRelations = relations(
-  poultryBatches,
-  ({ many }) => ({
-    individuals: many(poultryIndividuals),
-  })
-);
+export const poultryLocationsRelations = relations(poultryLocations, ({ many }) => ({
+  placements: many(poultryPlacements),
+}));
+
+export const poultryBatchesRelations = relations(poultryBatches, ({ many }) => ({
+  placements: many(poultryPlacements),
+  individuals: many(poultryIndividuals),
+}));
+
+export const poultryPlacementsRelations = relations(poultryPlacements, ({ one }) => ({
+  location: one(poultryLocations, {
+    fields: [poultryPlacements.locationId],
+    references: [poultryLocations.id],
+  }),
+  batch: one(poultryBatches, {
+    fields: [poultryPlacements.batchId],
+    references: [poultryBatches.id],
+  }),
+}));
 
 export const poultryIndividualsRelations = relations(
   poultryIndividuals,

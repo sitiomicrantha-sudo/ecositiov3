@@ -262,7 +262,7 @@ export function IndividualForm({ onSuccess }: IndividualFormProps) {
                         <option value="">Sem lote vinculado</option>
                         {batches.map((b) => (
                           <option key={b.id} value={b.id}>
-                            {b.name}
+                            {b.batchCode}
                           </option>
                         ))}
                       </select>

@@ -27,19 +27,20 @@ import { Plus, Loader2 } from "lucide-react";
 import { createPoultryBatch } from "@/actions/poultry";
 
 const batchFormSchema = z.object({
-  name: z
+  batchCode: z
     .string()
-    .min(1, "Nome do lote é obrigatório")
-    .max(255, "Nome deve ter no máximo 255 caracteres"),
+    .min(1, "Código do lote é obrigatório")
+    .max(30, "Código deve ter no máximo 30 caracteres"),
   breed: z.string().min(1, "Raça é obrigatória").max(255),
-  purpose: z.enum(["postura", "corte", "dupla_aptidao", "matriz_genetica"], {
+  purpose: z.enum(["postura", "corte", "misto"], {
     message: "Selecione o propósito",
   }),
   initialQuantity: z
     .string()
     .min(1, "Quantidade é obrigatória")
     .regex(/^\d+$/, "Quantidade deve ser um número inteiro"),
-  hatchDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data deve estar no formato YYYY-MM-DD"),
+  birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data deve estar no formato YYYY-MM-DD"),
+  arrivalDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data deve estar no formato YYYY-MM-DD"),
 });
 
 type BatchFormValues = z.infer<typeof batchFormSchema>;
@@ -57,11 +58,12 @@ export function BatchForm({ onSuccess }: BatchFormProps) {
   const form = useForm<BatchFormValues>({
     resolver: zodResolver(batchFormSchema),
     defaultValues: {
-      name: "",
+      batchCode: "",
       breed: "",
       purpose: "postura",
       initialQuantity: "",
-      hatchDate: today,
+      birthDate: today,
+      arrivalDate: today,
     },
   });
 
@@ -106,12 +108,12 @@ export function BatchForm({ onSuccess }: BatchFormProps) {
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
-              name="name"
+              name="batchCode"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Nome do Lote</FormLabel>
+                  <FormLabel>Código do Lote</FormLabel>
                   <FormControl>
-                    <Input placeholder="Ex: Lote Poedeiras A" {...field} />
+                    <Input placeholder="Ex: LOT-POD-001" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -146,8 +148,7 @@ export function BatchForm({ onSuccess }: BatchFormProps) {
                       >
                         <option value="postura">Postura</option>
                         <option value="corte">Corte</option>
-                        <option value="dupla_aptidao">Dupla Aptidão</option>
-                        <option value="matriz_genetica">Matriz Genética</option>
+                        <option value="misto">Misto</option>
                       </select>
                     </FormControl>
                     <FormMessage />
@@ -170,19 +171,35 @@ export function BatchForm({ onSuccess }: BatchFormProps) {
               />
             </div>
 
-            <FormField
-              control={form.control}
-              name="hatchDate"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Data de Eclosão/Nascimento</FormLabel>
-                  <FormControl>
-                    <Input type="date" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="birthDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Data de Nascimento</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="arrivalDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Data de Chegada</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
             <DialogFooter className="pt-4">
               <button

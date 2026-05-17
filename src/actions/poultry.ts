@@ -4,9 +4,11 @@ import { db } from "@/db";
 import {
   poultryBatches,
   poultryIndividuals,
+  poultryLocations,
+  poultryPlacements,
   fieldActivities,
 } from "@/db/schema";
-import { eq, and, inArray, desc, asc } from "drizzle-orm";
+import { eq, and, isNull, desc, asc, inArray } from "drizzle-orm";
 import { z } from "zod";
 import type { ActionResult } from "./topology";
 
@@ -14,16 +16,33 @@ import type { ActionResult } from "./topology";
 // SCHEMAS DE VALIDAÇÃO (Zod)
 // ============================================================
 
+const poultryLocationSchema = z.object({
+  name: z.string().min(1, "Nome é obrigatório").max(255),
+  shortCode: z.string().max(10).optional().nullable(),
+  locationType: z.enum(["galpao", "piquete_rotativo", "pinteiro"], {
+    message: "Selecione o tipo de localização",
+  }),
+  areaM2: z.string().regex(/^\d+(\.\d{1,2})?$/, "Área deve ser um número válido").optional().nullable(),
+  capacity: z.string().regex(/^\d+$/, "Capacidade deve ser um número inteiro").optional().nullable(),
+  status: z.enum(["liberado", "vazio_sanitario"]).default("liberado"),
+  sanitaryVoidStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data deve estar no formato YYYY-MM-DD").optional().nullable(),
+});
+
 const poultryBatchSchema = z.object({
-  name: z.string().min(1, "Nome do lote é obrigatório").max(255),
+  batchCode: z.string().min(1, "Código do lote é obrigatório").max(30),
   breed: z.string().min(1, "Raça é obrigatória").max(255),
-  purpose: z.enum(["postura", "corte", "dupla_aptidao", "matriz_genetica"], {
+  birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data deve estar no formato YYYY-MM-DD"),
+  arrivalDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data deve estar no formato YYYY-MM-DD"),
+  initialQuantity: z.string().regex(/^\d+$/, "Quantidade deve ser um número inteiro"),
+  purpose: z.enum(["corte", "postura", "misto"], {
     message: "Selecione o propósito",
   }),
-  initialQuantity: z
-    .string()
-    .regex(/^\d+$/, "Quantidade deve ser um número inteiro"),
-  hatchDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data deve estar no formato YYYY-MM-DD"),
+});
+
+const poultryPlacementSchema = z.object({
+  locationId: z.number().int().positive("Localização é obrigatória"),
+  batchId: z.number().int().positive("Lote é obrigatório"),
+  startedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data deve estar no formato YYYY-MM-DD").optional(),
 });
 
 const poultryIndividualSchema = z.object({
@@ -37,12 +56,134 @@ const poultryIndividualSchema = z.object({
 
 const mortalitySchema = z.object({
   batchId: z.number().int().positive("ID do lote é obrigatório"),
-  quantity: z
-    .string()
-    .regex(/^\d+$/, "Quantidade deve ser um número inteiro"),
+  quantity: z.string().regex(/^\d+$/, "Quantidade deve ser um número inteiro"),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data deve estar no formato YYYY-MM-DD"),
   notes: z.string().optional(),
 });
+
+// ============================================================
+// POULTRY LOCATIONS (Localizações Físicas)
+// ============================================================
+
+export async function createPoultryLocation(
+  formData: z.infer<typeof poultryLocationSchema>
+): Promise<ActionResult<typeof poultryLocations.$inferSelect>> {
+  try {
+    const validated = poultryLocationSchema.parse(formData);
+
+    const [newLocation] = await db
+      .insert(poultryLocations)
+      .values({
+        name: validated.name,
+        shortCode: validated.shortCode || null,
+        locationType: validated.locationType,
+        areaM2: validated.areaM2 || null,
+        capacity: validated.capacity ? parseInt(validated.capacity, 10) : null,
+        status: validated.status,
+        sanitaryVoidStart: validated.sanitaryVoidStart ? new Date(validated.sanitaryVoidStart) : null,
+      })
+      .returning();
+
+    return { success: true, data: newLocation };
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return { success: false, error: error.issues[0].message };
+    }
+    return { success: false, error: "Erro ao criar localização" };
+  }
+}
+
+export async function getPoultryLocations(): Promise<
+  ActionResult<typeof poultryLocations.$inferSelect[]>
+> {
+  try {
+    const locations = await db.query.poultryLocations.findMany({
+      orderBy: (poultryLocations, { asc }) => [asc(poultryLocations.name)],
+    });
+
+    return { success: true, data: locations };
+  } catch {
+    return { success: false, error: "Erro ao buscar localizações" };
+  }
+}
+
+export async function getActivePoultryLocations(): Promise<
+  ActionResult<typeof poultryLocations.$inferSelect[]>
+> {
+  try {
+    const locations = await db.query.poultryLocations.findMany({
+      where: eq(poultryLocations.isActive, true),
+      orderBy: (poultryLocations, { asc }) => [asc(poultryLocations.name)],
+    });
+
+    return { success: true, data: locations };
+  } catch {
+    return { success: false, error: "Erro ao buscar localizações ativas" };
+  }
+}
+
+export async function updatePoultryLocation(
+  id: number,
+  formData: z.infer<typeof poultryLocationSchema>
+): Promise<ActionResult<typeof poultryLocations.$inferSelect>> {
+  try {
+    const validated = poultryLocationSchema.parse(formData);
+
+    const [updated] = await db
+      .update(poultryLocations)
+      .set({
+        name: validated.name,
+        shortCode: validated.shortCode || null,
+        locationType: validated.locationType,
+        areaM2: validated.areaM2 || null,
+        capacity: validated.capacity ? parseInt(validated.capacity, 10) : null,
+        status: validated.status,
+        sanitaryVoidStart: validated.sanitaryVoidStart ? new Date(validated.sanitaryVoidStart) : null,
+        updatedAt: new Date(),
+      })
+      .where(eq(poultryLocations.id, id))
+      .returning();
+
+    return { success: true, data: updated };
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return { success: false, error: error.issues[0].message };
+    }
+    return { success: false, error: "Erro ao atualizar localização" };
+  }
+}
+
+export async function softDeletePoultryLocation(
+  id: number
+): Promise<ActionResult<typeof poultryLocations.$inferSelect>> {
+  try {
+    const [updated] = await db
+      .update(poultryLocations)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(eq(poultryLocations.id, id))
+      .returning();
+
+    return { success: true, data: updated };
+  } catch {
+    return { success: false, error: "Erro ao desativar localização" };
+  }
+}
+
+export async function restorePoultryLocation(
+  id: number
+): Promise<ActionResult<typeof poultryLocations.$inferSelect>> {
+  try {
+    const [updated] = await db
+      .update(poultryLocations)
+      .set({ isActive: true, updatedAt: new Date() })
+      .where(eq(poultryLocations.id, id))
+      .returning();
+
+    return { success: true, data: updated };
+  } catch {
+    return { success: false, error: "Erro ao restaurar localização" };
+  }
+}
 
 // ============================================================
 // POULTRY BATCHES (Lotes de Aves)
@@ -58,12 +199,13 @@ export async function createPoultryBatch(
     const [newBatch] = await db
       .insert(poultryBatches)
       .values({
-        name: validated.name,
+        batchCode: validated.batchCode,
         breed: validated.breed,
-        purpose: validated.purpose,
+        birthDate: validated.birthDate,
+        arrivalDate: validated.arrivalDate,
         initialQuantity: quantity,
-        currentQuantity: quantity,
-        hatchDate: new Date(validated.hatchDate),
+        activeQuantity: quantity,
+        purpose: validated.purpose,
       })
       .returning();
 
@@ -81,12 +223,237 @@ export async function getPoultryBatches(): Promise<
 > {
   try {
     const batches = await db.query.poultryBatches.findMany({
-      orderBy: (poultryBatches, { desc }) => [desc(poultryBatches.hatchDate)],
+      orderBy: (poultryBatches, { desc }) => [desc(poultryBatches.createdAt)],
     });
 
     return { success: true, data: batches };
   } catch {
     return { success: false, error: "Erro ao buscar lotes de aves" };
+  }
+}
+
+export async function getActivePoultryBatches(): Promise<
+  ActionResult<typeof poultryBatches.$inferSelect[]>
+> {
+  try {
+    const batches = await db.query.poultryBatches.findMany({
+      where: eq(poultryBatches.isActive, true),
+      orderBy: (poultryBatches, { asc }) => [asc(poultryBatches.batchCode)],
+    });
+
+    return { success: true, data: batches };
+  } catch {
+    return { success: false, error: "Erro ao buscar lotes ativos" };
+  }
+}
+
+export async function updatePoultryBatch(
+  id: number,
+  formData: Partial<z.infer<typeof poultryBatchSchema>>
+): Promise<ActionResult<typeof poultryBatches.$inferSelect>> {
+  try {
+    const updateData: Record<string, unknown> = { updatedAt: new Date() };
+
+    if (formData.batchCode) updateData.batchCode = formData.batchCode;
+    if (formData.breed) updateData.breed = formData.breed;
+    if (formData.birthDate) updateData.birthDate = formData.birthDate;
+    if (formData.arrivalDate) updateData.arrivalDate = formData.arrivalDate;
+    if (formData.initialQuantity) {
+      const qty = parseInt(formData.initialQuantity, 10);
+      updateData.initialQuantity = qty;
+    }
+    if (formData.purpose) updateData.purpose = formData.purpose;
+
+    const [updated] = await db
+      .update(poultryBatches)
+      .set(updateData)
+      .where(eq(poultryBatches.id, id))
+      .returning();
+
+    return { success: true, data: updated };
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return { success: false, error: error.issues[0].message };
+    }
+    return { success: false, error: "Erro ao atualizar lote" };
+  }
+}
+
+export async function softDeletePoultryBatch(
+  id: number
+): Promise<ActionResult<typeof poultryBatches.$inferSelect>> {
+  try {
+    const [updated] = await db
+      .update(poultryBatches)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(eq(poultryBatches.id, id))
+      .returning();
+
+    return { success: true, data: updated };
+  } catch {
+    return { success: false, error: "Erro ao desativar lote" };
+  }
+}
+
+// ============================================================
+// POULTRY PLACEMENTS (Alocações de Lotes em Localizações)
+// ============================================================
+
+export async function createPoultryPlacement(
+  formData: z.infer<typeof poultryPlacementSchema>
+): Promise<ActionResult<typeof poultryPlacements.$inferSelect>> {
+  try {
+    const validated = poultryPlacementSchema.parse(formData);
+
+    const existingPlacement = await db.query.poultryPlacements.findFirst({
+      where: and(
+        eq(poultryPlacements.batchId, validated.batchId),
+        isNull(poultryPlacements.endedAt)
+      ),
+    });
+
+    if (existingPlacement) {
+      return { success: false, error: "Este lote já está alocado em uma localização" };
+    }
+
+    const [newPlacement] = await db
+      .insert(poultryPlacements)
+      .values({
+        locationId: validated.locationId,
+        batchId: validated.batchId,
+        startedAt: validated.startedAt ? new Date(validated.startedAt) : new Date(),
+      })
+      .returning();
+
+    return { success: true, data: newPlacement };
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return { success: false, error: error.issues[0].message };
+    }
+    return { success: false, error: "Erro ao criar alocação" };
+  }
+}
+
+export async function getPoultryPlacements(): Promise<
+  ActionResult<
+    (typeof poultryPlacements.$inferSelect & {
+      location: typeof poultryLocations.$inferSelect | null;
+      batch: typeof poultryBatches.$inferSelect | null;
+    })[]
+  >
+> {
+  try {
+    const placements = await db.query.poultryPlacements.findMany({
+      with: {
+        location: true,
+        batch: true,
+      },
+      orderBy: (poultryPlacements, { desc }) => [desc(poultryPlacements.startedAt)],
+    });
+
+    return { success: true, data: placements };
+  } catch {
+    return { success: false, error: "Erro ao buscar alocações" };
+  }
+}
+
+export async function getActivePoultryPlacements(): Promise<
+  ActionResult<
+    (typeof poultryPlacements.$inferSelect & {
+      location: typeof poultryLocations.$inferSelect | null;
+      batch: typeof poultryBatches.$inferSelect | null;
+    })[]
+  >
+> {
+  try {
+    const placements = await db.query.poultryPlacements.findMany({
+      where: isNull(poultryPlacements.endedAt),
+      with: {
+        location: true,
+        batch: true,
+      },
+      orderBy: (poultryPlacements, { desc }) => [desc(poultryPlacements.startedAt)],
+    });
+
+    return { success: true, data: placements };
+  } catch {
+    return { success: false, error: "Erro ao buscar alocações ativas" };
+  }
+}
+
+export async function endPoultryPlacement(
+  id: number
+): Promise<ActionResult<typeof poultryPlacements.$inferSelect>> {
+  try {
+    const [updated] = await db
+      .update(poultryPlacements)
+      .set({ endedAt: new Date() })
+      .where(eq(poultryPlacements.id, id))
+      .returning();
+
+    return { success: true, data: updated };
+  } catch {
+    return { success: false, error: "Erro ao encerrar alocação" };
+  }
+}
+
+export async function movePoultryPlacement(
+  placementId: number,
+  newLocationId: number
+): Promise<ActionResult<typeof poultryPlacements.$inferSelect>> {
+  try {
+    const currentPlacement = await db.query.poultryPlacements.findFirst({
+      where: eq(poultryPlacements.id, placementId),
+      with: {
+        location: true,
+        batch: true,
+      },
+    });
+
+    if (!currentPlacement) {
+      return { success: false, error: "Alocação não encontrada" };
+    }
+
+    if (currentPlacement.endedAt) {
+      return { success: false, error: "Esta alocação já foi encerrada" };
+    }
+
+    const newLocation = await db.query.poultryLocations.findFirst({
+      where: eq(poultryLocations.id, newLocationId),
+    });
+
+    if (!newLocation) {
+      return { success: false, error: "Local de destino não encontrado" };
+    }
+
+    if (newLocation.status === "vazio_sanitario") {
+      return {
+        success: false,
+        error: "Não é possível mover para um local em vazio sanitário. Aguarde o período de descanso do solo.",
+      };
+    }
+
+    if (!newLocation.isActive) {
+      return { success: false, error: "O local de destino está desativado" };
+    }
+
+    await db
+      .update(poultryPlacements)
+      .set({ endedAt: new Date() })
+      .where(eq(poultryPlacements.id, placementId));
+
+    const [newPlacement] = await db
+      .insert(poultryPlacements)
+      .values({
+        locationId: newLocationId,
+        batchId: currentPlacement.batchId,
+        startedAt: new Date(),
+      })
+      .returning();
+
+    return { success: true, data: newPlacement };
+  } catch {
+    return { success: false, error: "Erro ao movimentar aves" };
   }
 }
 
@@ -126,7 +493,7 @@ export async function createPoultryIndividual(
 export async function getPoultryIndividuals(): Promise<
   ActionResult<
     (typeof poultryIndividuals.$inferSelect & {
-      batchName: string | null;
+      batch: typeof poultryBatches.$inferSelect | null;
     })[]
   >
 > {
@@ -138,12 +505,7 @@ export async function getPoultryIndividuals(): Promise<
       orderBy: (poultryIndividuals, { asc }) => [asc(poultryIndividuals.ringId)],
     });
 
-    const enriched = individuals.map((ind) => ({
-      ...ind,
-      batchName: (ind.batch as { name: string } | null)?.name || null,
-    }));
-
-    return { success: true, data: enriched };
+    return { success: true, data: individuals };
   } catch {
     return { success: false, error: "Erro ao buscar indivíduos" };
   }
@@ -169,8 +531,8 @@ export async function getActiveBatchesForSelect(): Promise<
 > {
   try {
     const batches = await db.query.poultryBatches.findMany({
-      where: eq(poultryBatches.status, "active"),
-      orderBy: (poultryBatches, { asc }) => [asc(poultryBatches.name)],
+      where: eq(poultryBatches.isActive, true),
+      orderBy: (poultryBatches, { asc }) => [asc(poultryBatches.batchCode)],
     });
 
     return { success: true, data: batches };
@@ -285,18 +647,18 @@ export async function registerMortality(
       return { success: false, error: "Quantidade deve ser maior que zero" };
     }
 
-    if (quantity > batch.currentQuantity) {
+    if (quantity > batch.activeQuantity) {
       return {
         success: false,
-        error: `Quantidade excede o atual do lote (${batch.currentQuantity} aves)`,
+        error: `Quantidade excede o atual do lote (${batch.activeQuantity} aves)`,
       };
     }
 
-    const newQuantity = batch.currentQuantity - quantity;
+    const newQuantity = batch.activeQuantity - quantity;
 
     const [updatedBatch] = await db
       .update(poultryBatches)
-      .set({ currentQuantity: newQuantity })
+      .set({ activeQuantity: newQuantity })
       .where(eq(poultryBatches.id, validated.batchId))
       .returning();
 

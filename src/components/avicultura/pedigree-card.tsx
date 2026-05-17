@@ -153,7 +153,7 @@ export function PedigreeCard({ pedigree, open, onOpenChange }: PedigreeCardProps
                 </span>
                 {individual.batch && (
                   <p className="mt-1 text-xs text-amber-600">
-                    Lote: {individual.batch.name}
+                    Lote: {individual.batch.batchCode}
                   </p>
                 )}
               </div>

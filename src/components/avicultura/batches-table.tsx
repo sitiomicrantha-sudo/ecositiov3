@@ -22,26 +22,18 @@ interface BatchesTableProps {
 const purposeLabels: Record<string, string> = {
   postura: "Postura",
   corte: "Corte",
-  dupla_aptidao: "Dupla Aptidão",
-  matriz_genetica: "Matriz Genética",
+  misto: "Misto",
 };
 
 const purposeColors: Record<string, string> = {
   postura: "bg-green-100 text-green-800",
   corte: "bg-amber-100 text-amber-800",
-  dupla_aptidao: "bg-blue-100 text-blue-800",
-  matriz_genetica: "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
+  misto: "bg-blue-100 text-blue-800",
 };
 
-const statusLabels: Record<string, string> = {
-  active: "Ativo",
-  retired: "Aposentado",
-  sold: "Vendido",
-};
-
-function calculateAgeWeeks(hatchDate: Date): number {
+function calculateAgeWeeks(birthDate: string): number {
   const now = new Date();
-  const diff = now.getTime() - new Date(hatchDate).getTime();
+  const diff = now.getTime() - new Date(birthDate).getTime();
   return Math.floor(diff / (7 * 24 * 60 * 60 * 1000));
 }
 
@@ -87,13 +79,13 @@ export function BatchesTable({ batches, onMortality }: BatchesTableProps) {
           </TableHeader>
           <TableBody>
             {batches.map((batch) => {
-              const ageWeeks = calculateAgeWeeks(batch.hatchDate);
-              const isLow = batch.currentQuantity < batch.initialQuantity;
+              const ageWeeks = calculateAgeWeeks(batch.birthDate);
+              const isLow = batch.activeQuantity < batch.initialQuantity;
 
               return (
                 <TableRow key={batch.id} className="hover:bg-gray-50">
                   <TableCell className="font-medium text-gray-900">
-                    {batch.name}
+                    {batch.batchCode}
                   </TableCell>
                   <TableCell className="hidden text-gray-600 sm:table-cell">
                     {batch.breed}
@@ -111,14 +103,14 @@ export function BatchesTable({ batches, onMortality }: BatchesTableProps) {
                   <TableCell
                     className={`text-right font-semibold ${isLow ? "text-red-600" : "text-green-700"}`}
                   >
-                    {batch.currentQuantity}
+                    {batch.activeQuantity}
                     <span className="text-xs font-normal text-gray-400">
                       /{batch.initialQuantity}
                     </span>
                   </TableCell>
                   <TableCell className="hidden text-gray-500 lg:table-cell">
                     <span className="text-sm">
-                      {statusLabels[batch.status]}
+                      {batch.isActive ? "Ativo" : "Inativo"}
                     </span>
                   </TableCell>
                   <TableCell className="text-right">

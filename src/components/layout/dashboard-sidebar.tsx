@@ -31,6 +31,8 @@ import {
   ShoppingCart,
   ScrollText,
   Package,
+  MapPin,
+  ArrowRightLeft,
 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 
@@ -61,10 +63,15 @@ export function DashboardSidebar({ modules }: DashboardSidebarProps) {
           { title: "Lotes de Colheita", href: "/campo/lotes", icon: Package },
         ]
       : []),
-    ...(aviculturaActive
-      ? [{ title: "Avicultura", href: "/avicultura", icon: Bird }]
-      : []),
   ];
+
+  const aviculturaItems = aviculturaActive
+    ? [
+        { title: "Visão Geral", href: "/avicultura", icon: Bird },
+        { title: "Locais Físicos", href: "/avicultura/locais", icon: MapPin },
+        { title: "Alojamentos", href: "/avicultura/alojamentos", icon: ArrowRightLeft },
+      ]
+    : [];
 
   const salesItems = [
     { title: "PDV / Caixa", href: "/pdv", icon: ShoppingCart },
@@ -134,6 +141,31 @@ export function DashboardSidebar({ modules }: DashboardSidebarProps) {
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton
                       isActive={pathname === item.href}
+                      onClick={() => router.push(item.href)}
+                      className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground"
+                    >
+                      <item.icon className="size-4" />
+                      <span>{item.title}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
+        {/* Avicultura */}
+        {aviculturaItems.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-green-300">
+              Avicultura
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {aviculturaItems.map((item) => (
+                  <SidebarMenuItem key={item.href}>
+                    <SidebarMenuButton
+                      isActive={pathname === item.href || pathname.startsWith(item.href + "/")}
                       onClick={() => router.push(item.href)}
                       className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground"
                     >
