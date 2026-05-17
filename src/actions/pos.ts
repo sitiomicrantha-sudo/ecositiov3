@@ -10,19 +10,11 @@ import {
   customers,
   costCenters,
 } from "@/db/schema";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import type { ActionResult } from "./topology";
 import { calculateOrderCostCenterSplit } from "@/lib/cost-center";
 import { ensureDefaultCostCenters } from "./cost-centers";
-
-async function getFallbackCostCenterId(): Promise<number> {
-  const [fallback] = await db
-    .select({ id: costCenters.id })
-    .from(costCenters)
-    .where(eq(costCenters.name, "Infraestrutura Geral"))
-    .limit(1);
-  return fallback?.id ?? 1;
-}
+import { getFallbackCostCenterId } from "./finance";
 
 export async function createPOSOrder(data: {
   customerId?: number | null;
@@ -129,83 +121,6 @@ export async function createPOSOrder(data: {
     return { success: true, data: newOrder };
   } catch (error) {
     return { success: false, error: `Erro ao criar pedido: ${error instanceof Error ? error.message : "Erro desconhecido"}` };
-  }
-}
-
-export async function confirmOrderPayment(
-  orderId: number
-): Promise<ActionResult<typeof orders.$inferSelect>> {
-  try {
-    await ensureDefaultCostCenters();
-
-    const order = await db.query.orders.findFirst({
-      where: eq(orders.id, orderId),
-      with: {
-        items: {
-          with: {
-            item: true,
-          },
-        },
-      },
-    });
-
-    if (!order) {
-      return { success: false, error: "Pedido não encontrado" };
-    }
-
-    if (order.paymentStatus === "pago") {
-      return { success: false, error: "Este pedido já está pago" };
-    }
-
-    const [updatedOrder] = await db
-      .update(orders)
-      .set({ paymentStatus: "pago", paymentMethod: order.paymentMethod === "pendente" ? "pix" : order.paymentMethod })
-      .where(eq(orders.id, orderId))
-      .returning();
-
-    const customerLabel = order.customerId
-      ? (await db.query.customers.findFirst({ where: eq(customers.id, order.customerId) }))?.name
-      : order.customerName || "Cliente";
-
-    const itemsWithCostCenter = (order.items as any[]).map((oi: any) => ({
-      itemId: oi.itemId,
-      totalPrice: parseFloat(oi.totalPrice),
-      costCenterId: oi.item?.costCenterId ?? null,
-    }));
-
-    const fallbackId = await getFallbackCostCenterId();
-    const splits = calculateOrderCostCenterSplit(itemsWithCostCenter, parseFloat(order.deliveryFee), fallbackId);
-
-    for (const split of splits) {
-      const center = await db.query.costCenters.findFirst({
-        where: eq(costCenters.id, split.costCenterId),
-      });
-      const centerName = center?.name || "Geral";
-
-      await db.insert(financialTransactions).values({
-        date: order.date,
-        type: "revenue",
-        category: "venda_producao",
-        amount: split.total.toFixed(2),
-        description: `Pedido #${orderId} - Receita ${centerName} - ${customerLabel} (pagamento confirmado)`,
-        orderId,
-        costCenterId: split.costCenterId,
-      });
-    }
-
-    for (const oi of order.items as any[]) {
-      await db.insert(inventoryTransactions).values({
-        itemId: oi.itemId,
-        type: "exit",
-        quantity: oi.quantity,
-        date: order.date.toISOString().split("T")[0],
-        notes: `Pedido #${orderId} - ${oi.item?.name || "Item"} (pagamento confirmado)`,
-      });
-    }
-
-    return { success: true, data: updatedOrder };
-  } catch {
-    return { success: false, error: "Erro ao confirmar pagamento" };
   }
 }
 
@@ -317,59 +232,4 @@ export async function getRecentOrders(): Promise<
   }
 }
 
-export async function getOrdersList(): Promise<
-  ActionResult<
-    {
-      id: number;
-      date: Date;
-      customerName: string | null;
-      type: string;
-      paymentMethod: string;
-      paymentStatus: string;
-      deliveryFee: string;
-      subtotal: string;
-      total: string;
-      items: {
-        itemName: string;
-        quantity: string;
-        unitPrice: string;
-        totalPrice: string;
-      }[];
-    }[]
-  >
-> {
-  try {
-    const orderList = await db.query.orders.findMany({
-      orderBy: [desc(orders.date)],
-      with: {
-        items: {
-          with: {
-            item: true,
-          },
-        },
-      },
-    });
 
-    const enriched = orderList.map((o) => ({
-      id: o.id,
-      date: o.date,
-      customerName: o.customerName || null,
-      type: o.type,
-      paymentMethod: o.paymentMethod,
-      paymentStatus: o.paymentStatus,
-      deliveryFee: o.deliveryFee,
-      subtotal: o.subtotal,
-      total: o.total,
-      items: (o.items as any[]).map((oi: any) => ({
-        itemName: oi.item?.name || "—",
-        quantity: oi.quantity,
-        unitPrice: oi.unitPrice,
-        totalPrice: oi.totalPrice,
-      })),
-    }));
-
-    return { success: true, data: enriched };
-  } catch {
-    return { success: false, error: "Erro ao buscar pedidos" };
-  }
-}

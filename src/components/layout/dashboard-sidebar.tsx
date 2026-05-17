@@ -43,10 +43,11 @@ import {
   MapPin,
   Store,
   Boxes,
+  Users,
   type LucideIcon,
 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface Module {
   id: string;
@@ -156,9 +157,15 @@ function SidebarAccordionGroup({
 export function DashboardSidebar({ modules }: DashboardSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const [pdvEnabled, setPdvEnabled] = useState(false);
 
   const vegetalActive = modules.some((m) => m.id === "vegetal" && m.isActive);
   const aviculturaActive = modules.some((m) => m.id === "avicultura" && m.isActive);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("pdv_module_enabled");
+    setPdvEnabled(saved === "true");
+  }, []);
 
   const vegetalItems: SidebarItem[] = vegetalActive
     ? [
@@ -181,11 +188,15 @@ export function DashboardSidebar({ modules }: DashboardSidebarProps) {
 
   const financeiroItems: SidebarItem[] = [
     { title: "Fluxo de Caixa", href: "/financeiro", icon: Wallet },
-    { title: "PDV / Delivery", href: "/pdv", icon: Store, disabled: true },
+    { title: "Contas a Pagar", href: "/financeiro/contas-pagar", icon: DollarSign },
+    { title: "Contas a Receber", href: "/financeiro/contas-receber", icon: DollarSign },
+    { title: "Relatórios & DRE", href: "/financeiro/relatorios", icon: BarChart3 },
+    { title: "PDV / Delivery", href: "/pdv", icon: Store, disabled: !pdvEnabled },
   ];
 
   const configItems: SidebarItem[] = [
     { title: "Estoque / Insumos", href: "/estoque", icon: Boxes },
+    { title: "Fornecedores", href: "/clientes/fornecedores", icon: Users },
     { title: "Configurações do Sítio", href: "/configuracoes", icon: Settings },
   ];
 

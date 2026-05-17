@@ -15,7 +15,7 @@ import type { ActionResult } from "./topology";
 import { calculateOrderCostCenterSplit } from "@/lib/cost-center";
 import { ensureDefaultCostCenters } from "./cost-centers";
 
-async function getFallbackCostCenterId(): Promise<number> {
+export async function getFallbackCostCenterId(): Promise<number> {
   const [fallback] = await db
     .select({ id: costCenters.id })
     .from(costCenters)

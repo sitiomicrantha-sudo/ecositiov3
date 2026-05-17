@@ -134,6 +134,30 @@ export const customerStatusEnum = pgEnum("customer_status", [
   "inactive",
 ]);
 
+export const supplierStatusEnum = pgEnum("supplier_status", [
+  "ativo",
+  "inativo",
+]);
+
+export const billStatusEnum = pgEnum("bill_status", [
+  "pending",
+  "paid",
+  "overdue",
+]);
+
+export const receivableStatusEnum = pgEnum("receivable_status", [
+  "pending",
+  "received",
+  "overdue",
+]);
+
+export const installmentStatusEnum = pgEnum("installment_status", [
+  "pending",
+  "paid",
+  "overdue",
+  "cancelled",
+]);
+
 // ============================================================
 // CENTROS DE CUSTO
 // ============================================================
@@ -452,6 +476,71 @@ export const financialTransactions = pgTable("financial_transactions", {
 });
 
 // ============================================================
+// MÓDULO 3: GESTÃO FINANCEIRA ANALÍTICA (FASE 3.1)
+// ============================================================
+
+export const suppliers = pgTable("suppliers", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  document: varchar("document", { length: 20 }),
+  email: varchar("email", { length: 255 }),
+  phone: varchar("phone", { length: 50 }),
+  status: supplierStatusEnum("status").notNull().default("ativo"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const bills = pgTable("bills", {
+  id: serial("id").primaryKey(),
+  dueDate: date("due_date").notNull(),
+  paidDate: date("paid_date"),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  description: text("description").notNull(),
+  status: billStatusEnum("status").notNull().default("pending"),
+  category: varchar("category", { length: 100 }).notNull(),
+  supplierId: integer("supplier_id").references(() => suppliers.id, {
+    onDelete: "set null",
+  }),
+  costCenterId: integer("cost_center_id").references(() => costCenters.id, {
+    onDelete: "set null",
+  }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const receivables = pgTable("receivables", {
+  id: serial("id").primaryKey(),
+  dueDate: date("due_date").notNull(),
+  receivedDate: date("received_date"),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  description: text("description").notNull(),
+  status: receivableStatusEnum("status").notNull().default("pending"),
+  orderId: integer("order_id").references(() => orders.id, {
+    onDelete: "set null",
+  }),
+  customerId: integer("customer_id").references(() => customers.id, {
+    onDelete: "set null",
+  }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const installments = pgTable("installments", {
+  id: serial("id").primaryKey(),
+  billId: integer("bill_id").references(() => bills.id, {
+    onDelete: "cascade",
+  }),
+  orderId: integer("order_id").references(() => orders.id, {
+    onDelete: "cascade",
+  }),
+  installmentNumber: integer("installment_number").notNull(),
+  totalInstallments: integer("total_installments").notNull(),
+  dueDate: date("due_date").notNull(),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  status: installmentStatusEnum("status").notNull().default("pending"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ============================================================
 // RELACIONAMENTOS (Drizzle Relations)
 // ============================================================
 
@@ -619,6 +708,8 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
   }),
   items: many(orderItems),
   financialTransactions: many(financialTransactions),
+  receivables: many(receivables),
+  installments: many(installments),
 }));
 
 export const orderItemsRelations = relations(orderItems, ({ one }) => ({
@@ -649,6 +740,7 @@ export const financialTransactionsRelations = relations(
 export const costCentersRelations = relations(costCenters, ({ many }) => ({
   inventoryItems: many(inventoryItems),
   financialTransactions: many(financialTransactions),
+  bills: many(bills),
 }));
 
 export const harvestBatchesRelations = relations(harvestBatches, ({ one }) => ({
@@ -659,5 +751,47 @@ export const harvestBatchesRelations = relations(harvestBatches, ({ one }) => ({
   planting: one(plantings, {
     fields: [harvestBatches.plantingId],
     references: [plantings.id],
+  }),
+}));
+
+// ============================================================
+// MÓDULO 3: RELACIONAMENTOS FINANCEIROS
+// ============================================================
+
+export const suppliersRelations = relations(suppliers, ({ many }) => ({
+  bills: many(bills),
+}));
+
+export const billsRelations = relations(bills, ({ one, many }) => ({
+  supplier: one(suppliers, {
+    fields: [bills.supplierId],
+    references: [suppliers.id],
+  }),
+  costCenter: one(costCenters, {
+    fields: [bills.costCenterId],
+    references: [costCenters.id],
+  }),
+  installments: many(installments),
+}));
+
+export const receivablesRelations = relations(receivables, ({ one }) => ({
+  order: one(orders, {
+    fields: [receivables.orderId],
+    references: [orders.id],
+  }),
+  customer: one(customers, {
+    fields: [receivables.customerId],
+    references: [customers.id],
+  }),
+}));
+
+export const installmentsRelations = relations(installments, ({ one }) => ({
+  bill: one(bills, {
+    fields: [installments.billId],
+    references: [bills.id],
+  }),
+  order: one(orders, {
+    fields: [installments.orderId],
+    references: [orders.id],
   }),
 }));

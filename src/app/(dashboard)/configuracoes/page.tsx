@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { getActiveModules, toggleModule } from "@/actions/system-modules";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Sprout, Bird, Egg, Fence, Settings } from "lucide-react";
+import { Sprout, Bird, Egg, Fence, Settings, Store } from "lucide-react";
 
 interface Module {
   id: string;
@@ -23,6 +23,7 @@ const moduleIcons: Record<string, any> = {
 export default function ConfiguracoesPage() {
   const [modules, setModules] = useState<Module[]>([]);
   const [loading, setLoading] = useState(true);
+  const [pdvEnabled, setPdvEnabled] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
@@ -32,6 +33,8 @@ export default function ConfiguracoesPage() {
     } else {
       toast.error("Erro ao carregar módulos do sistema");
     }
+    const saved = localStorage.getItem("pdv_module_enabled");
+    setPdvEnabled(saved === "true");
     setLoading(false);
   };
 
@@ -47,6 +50,12 @@ export default function ConfiguracoesPage() {
     } else {
       toast.error(result.error);
     }
+  }
+
+  function handlePdvToggle(enabled: boolean) {
+    setPdvEnabled(enabled);
+    localStorage.setItem("pdv_module_enabled", enabled.toString());
+    toast.success(enabled ? "Módulo PDV ativado!" : "Módulo PDV desativado");
   }
 
   if (loading) {
@@ -100,6 +109,28 @@ export default function ConfiguracoesPage() {
               </div>
             );
           })}
+        </div>
+      </div>
+
+      <div className="rounded-xl border bg-white p-6 shadow-sm">
+        <div className="mb-6 flex items-center gap-2">
+          <Store className="size-5 text-gray-500" />
+          <h3 className="text-lg font-semibold text-gray-900">Funcionalidades</h3>
+        </div>
+
+        <div className="flex items-center justify-between rounded-lg border p-4">
+          <div className="flex items-center gap-4">
+            <div className={`flex size-10 items-center justify-center rounded-full ${
+              pdvEnabled ? "bg-emerald-100 text-emerald-600" : "bg-gray-100 text-gray-400"
+            }`}>
+              <Store className="size-5" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-gray-900">Módulo de Vendas / PDV</p>
+              <p className="text-xs text-gray-500">Ponto de venda e delivery com recibo WhatsApp</p>
+            </div>
+          </div>
+          <Switch checked={pdvEnabled} onCheckedChange={handlePdvToggle} />
         </div>
       </div>
     </div>
