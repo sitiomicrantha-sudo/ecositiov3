@@ -55,6 +55,7 @@ function getActivityLabel(a: {
   activityType: string;
   itemName: string | null;
   bedName: string | null;
+  bedShortCode: string | null;
   batchName: string | null;
   quantity: string | null;
   notes: string | null;
@@ -77,7 +78,8 @@ function getActivityLabel(a: {
   }
 
   if (a.bedName && a.activityType !== "coleta_ovos" && a.activityType !== "limpeza_aviario" && a.activityType !== "coleta_esterco") {
-    label += ` no ${a.bedName}`;
+    const bedLabel = a.bedShortCode ? `[${a.bedShortCode}] ${a.bedName}` : a.bedName;
+    label += ` no ${bedLabel}`;
   }
 
   if (a.batchName && (a.activityType === "coleta_ovos" || a.activityType === "limpeza_aviario" || a.activityType === "coleta_esterco")) {
@@ -99,6 +101,7 @@ interface ActivityItem {
   quantity: string | null;
   notes: string | null;
   bedName: string | null;
+  bedShortCode: string | null;
   itemName: string | null;
   batchName: string | null;
 }

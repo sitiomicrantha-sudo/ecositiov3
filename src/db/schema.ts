@@ -158,8 +158,10 @@ export const glebes = pgTable("glebes", {
     .notNull()
     .references(() => properties.id, { onDelete: "cascade" }),
   name: varchar("name", { length: 255 }).notNull(),
+  shortCode: varchar("short_code", { length: 10 }),
   area: decimal("area", { precision: 10, scale: 2 }).notNull(),
   description: text("description"),
+  isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -170,8 +172,10 @@ export const fields = pgTable("fields", {
     .notNull()
     .references(() => glebes.id, { onDelete: "cascade" }),
   name: varchar("name", { length: 255 }).notNull(),
+  shortCode: varchar("short_code", { length: 10 }),
   area: decimal("area", { precision: 10, scale: 2 }).notNull(),
   description: text("description"),
+  isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -182,8 +186,10 @@ export const beds = pgTable("beds", {
     .notNull()
     .references(() => fields.id, { onDelete: "cascade" }),
   name: varchar("name", { length: 255 }).notNull(),
+  shortCode: varchar("short_code", { length: 10 }),
   area: decimal("area", { precision: 10, scale: 2 }).notNull(),
   description: text("description"),
+  isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

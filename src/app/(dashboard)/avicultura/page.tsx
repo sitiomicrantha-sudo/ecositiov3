@@ -85,6 +85,7 @@ interface AvesActivity {
   quantity: string | null;
   notes: string | null;
   bedName: string | null;
+  bedShortCode: string | null;
   itemName: string | null;
   batchName: string | null;
 }

@@ -144,6 +144,7 @@ export async function getFieldActivities(): Promise<
   ActionResult<
     (typeof fieldActivities.$inferSelect & {
       bedName: string | null;
+      bedShortCode: string | null;
       itemName: string | null;
       batchName: string | null;
     })[]
@@ -162,6 +163,7 @@ export async function getFieldActivities(): Promise<
     const enriched = activities.map((a) => ({
       ...a,
       bedName: (a.bed as { name: string } | null)?.name || null,
+      bedShortCode: (a.bed as { shortCode: string | null } | null)?.shortCode || null,
       itemName: (a.item as { name: string } | null)?.name || null,
       batchName: (a.batch as { name: string } | null)?.name || null,
     }));
@@ -176,6 +178,7 @@ export async function getVegetalActivities(): Promise<
   ActionResult<
     (typeof fieldActivities.$inferSelect & {
       bedName: string | null;
+      bedShortCode: string | null;
       itemName: string | null;
       batchName: string | null;
     })[]
@@ -199,6 +202,7 @@ export async function getVegetalActivities(): Promise<
     const enriched = activities.map((a) => ({
       ...a,
       bedName: (a.bed as { name: string } | null)?.name || null,
+      bedShortCode: (a.bed as { shortCode: string | null } | null)?.shortCode || null,
       itemName: (a.item as { name: string } | null)?.name || null,
       batchName: (a.batch as { name: string } | null)?.name || null,
     }));
@@ -213,6 +217,7 @@ export async function getAvesActivities(): Promise<
   ActionResult<
     (typeof fieldActivities.$inferSelect & {
       bedName: string | null;
+      bedShortCode: string | null;
       itemName: string | null;
       batchName: string | null;
     })[]
@@ -232,6 +237,7 @@ export async function getAvesActivities(): Promise<
     const enriched = activities.map((a) => ({
       ...a,
       bedName: (a.bed as { name: string } | null)?.name || null,
+      bedShortCode: (a.bed as { shortCode: string | null } | null)?.shortCode || null,
       itemName: (a.item as { name: string } | null)?.name || null,
       batchName: (a.batch as { name: string } | null)?.name || null,
     }));
@@ -253,6 +259,7 @@ export async function getBedsWithPlantingStatus(): Promise<
 > {
   try {
     const allBeds = await db.query.beds.findMany({
+      where: eq(beds.isActive, true),
       orderBy: (beds, { asc }) => [asc(beds.name)],
     });
 

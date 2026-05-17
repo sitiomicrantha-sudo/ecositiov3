@@ -111,7 +111,7 @@ const needsBedForPiquete = ["movimentacao_piquete"];
 
 export function ActivityForm({ activityType, open, onOpenChange, onSuccess }: ActivityFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [beds, setBeds] = useState<{ id: number; name: string }[]>([]);
+  const [beds, setBeds] = useState<{ id: number; name: string; shortCode: string | null }[]>([]);
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [batches, setBatches] = useState<BatchItem[]>([]);
   const [loadingOptions, setLoadingOptions] = useState(false);
@@ -158,7 +158,7 @@ export function ActivityForm({ activityType, open, onOpenChange, onSuccess }: Ac
       const bedsResult = await getBedsWithPlantingStatus();
       if (bedsResult.success) {
         setBeds(
-          bedsResult.data.map((b) => ({ id: b.id, name: b.name }))
+          bedsResult.data.map((b) => ({ id: b.id, name: b.name, shortCode: b.shortCode }))
         );
       }
     }
@@ -167,7 +167,7 @@ export function ActivityForm({ activityType, open, onOpenChange, onSuccess }: Ac
       const bedsResult = await getBedsWithPlantingStatus();
       if (bedsResult.success) {
         setBeds(
-          bedsResult.data.map((b) => ({ id: b.id, name: b.name }))
+          bedsResult.data.map((b) => ({ id: b.id, name: b.name, shortCode: b.shortCode }))
         );
       }
     }
@@ -292,7 +292,7 @@ export function ActivityForm({ activityType, open, onOpenChange, onSuccess }: Ac
                           <option value="">Selecione o canteiro</option>
                           {beds.map((bed) => (
                             <option key={bed.id} value={bed.id}>
-                              {bed.name}
+                              {bed.shortCode ? `[${bed.shortCode}] ${bed.name}` : bed.name}
                             </option>
                           ))}
                         </select>
@@ -526,7 +526,7 @@ export function ActivityForm({ activityType, open, onOpenChange, onSuccess }: Ac
                           <option value="">Selecione o piquete</option>
                           {beds.map((bed) => (
                             <option key={bed.id} value={bed.id}>
-                              {bed.name}
+                              {bed.shortCode ? `[${bed.shortCode}] ${bed.name}` : bed.name}
                             </option>
                           ))}
                         </select>

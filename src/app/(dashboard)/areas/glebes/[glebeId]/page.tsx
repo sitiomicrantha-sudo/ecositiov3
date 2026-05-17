@@ -120,7 +120,7 @@ export default function GlebeDetailPage() {
         <h3 className="mb-4 text-lg font-semibold text-gray-900">
           Talhões ({fieldsList.length})
         </h3>
-        <FieldsTable fieldsList={fieldsList} glebeId={glebeId} />
+        <FieldsTable fieldsList={fieldsList} glebeId={glebeId} onSuccess={loadData} />
       </div>
     </div>
   );

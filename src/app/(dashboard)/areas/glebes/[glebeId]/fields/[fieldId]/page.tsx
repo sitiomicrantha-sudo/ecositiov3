@@ -135,7 +135,7 @@ export default function FieldDetailPage() {
         <h3 className="mb-4 text-lg font-semibold text-gray-900">
           Canteiros ({bedsList.length})
         </h3>
-        <BedsTable bedsList={bedsList} />
+        <BedsTable bedsList={bedsList} fieldId={fieldId} onSuccess={loadData} />
       </div>
     </div>
   );

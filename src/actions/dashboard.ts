@@ -134,6 +134,7 @@ export async function getRecentActivities(): Promise<
       quantity: string | null;
       notes: string | null;
       bedName: string | null;
+      bedShortCode: string | null;
       itemName: string | null;
       batchName: string | null;
     }[]
@@ -158,6 +159,7 @@ export async function getRecentActivities(): Promise<
       quantity: a.quantity,
       notes: a.notes,
       bedName: (a.bed as { name: string } | null)?.name || null,
+      bedShortCode: (a.bed as { shortCode: string | null } | null)?.shortCode || null,
       itemName: (a.item as { name: string } | null)?.name || null,
       batchName: (a.batch as { name: string } | null)?.name || null,
     }));

@@ -25,13 +25,17 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Plus, Loader2 } from "lucide-react";
-import { createBed } from "@/actions/topology";
+import { createBed, updateBed } from "@/actions/topology";
+import type { beds } from "@/db/schema";
+
+type Bed = typeof beds.$inferSelect;
 
 const bedFormSchema = z.object({
   name: z
     .string()
     .min(1, "Nome do canteiro é obrigatório")
     .max(255, "Nome deve ter no máximo 255 caracteres"),
+  shortCode: z.string().max(10, "Código deve ter no máximo 10 caracteres").optional().nullable(),
   area: z
     .string()
     .min(1, "Área é obrigatória")
@@ -44,18 +48,21 @@ type BedFormValues = z.infer<typeof bedFormSchema>;
 interface BedFormProps {
   fieldId: number;
   onSuccess: () => void;
+  initialData?: Bed | null;
 }
 
-export function BedForm({ fieldId, onSuccess }: BedFormProps) {
+export function BedForm({ fieldId, onSuccess, initialData }: BedFormProps) {
   const [open, setOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isEditing = !!initialData;
 
   const form = useForm<BedFormValues>({
     resolver: zodResolver(bedFormSchema),
     defaultValues: {
-      name: "",
-      area: "",
-      description: "",
+      name: initialData?.name || "",
+      shortCode: initialData?.shortCode || "",
+      area: initialData?.area ? String(initialData.area) : "",
+      description: initialData?.description || "",
     },
   });
 
@@ -63,13 +70,15 @@ export function BedForm({ fieldId, onSuccess }: BedFormProps) {
     setIsSubmitting(true);
 
     try {
-      const result = await createBed({
-        ...values,
-        fieldId,
-      });
+      const result = isEditing
+        ? await updateBed(initialData.id, values)
+        : await createBed({
+            ...values,
+            fieldId,
+          });
 
       if (result.success) {
-        toast.success("Canteiro criado com sucesso!");
+        toast.success(isEditing ? "Canteiro atualizado com sucesso!" : "Canteiro criado com sucesso!");
         form.reset();
         setOpen(false);
         onSuccess();
@@ -77,25 +86,41 @@ export function BedForm({ fieldId, onSuccess }: BedFormProps) {
         toast.error(result.error);
       }
     } catch {
-      toast.error("Erro inesperado ao criar canteiro");
+      toast.error("Erro inesperado ao salvar canteiro");
     } finally {
       setIsSubmitting(false);
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger onClick={() => setOpen(true)}>
-        <div className="inline-flex shrink-0 cursor-pointer items-center justify-center rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700">
-          <Plus className="mr-2 size-4" />
-          Novo Canteiro
-        </div>
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={(val) => {
+      setOpen(val);
+      if (val && initialData) {
+        form.reset({
+          name: initialData.name,
+          shortCode: initialData.shortCode || "",
+          area: String(initialData.area),
+          description: initialData.description || "",
+        });
+      }
+    }}>
+      {!isEditing && (
+        <DialogTrigger onClick={() => setOpen(true)}>
+          <div className="inline-flex shrink-0 cursor-pointer items-center justify-center rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700">
+            <Plus className="mr-2 size-4" />
+            Novo Canteiro
+          </div>
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-green-900">Novo Canteiro</DialogTitle>
+          <DialogTitle className="text-green-900">
+            {isEditing ? "Editar Canteiro" : "Novo Canteiro"}
+          </DialogTitle>
           <DialogDescription>
-            Cadastre um novo canteiro vinculado a este talhão.
+            {isEditing
+              ? "Edite os dados do canteiro. O código curto e a área podem ser alterados."
+              : "Cadastre um novo canteiro vinculado a este talhão."}
           </DialogDescription>
         </DialogHeader>
 
@@ -109,6 +134,20 @@ export function BedForm({ fieldId, onSuccess }: BedFormProps) {
                   <FormLabel>Nome do Canteiro</FormLabel>
                   <FormControl>
                     <Input placeholder="Ex: Canteiro 1" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="shortCode"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Código Curto (opcional)</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Ex: C05" {...field} value={field.value || ""} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -163,7 +202,7 @@ export function BedForm({ fieldId, onSuccess }: BedFormProps) {
                     Salvando...
                   </>
                 ) : (
-                  "Salvar"
+                  isEditing ? "Atualizar" : "Salvar"
                 )}
               </Button>
             </DialogFooter>

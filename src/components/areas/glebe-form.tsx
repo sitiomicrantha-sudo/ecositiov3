@@ -25,13 +25,17 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Plus, Loader2 } from "lucide-react";
-import { createGlebe } from "@/actions/topology";
+import { createGlebe, updateGlebe } from "@/actions/topology";
+import type { glebes } from "@/db/schema";
+
+type Glebe = typeof glebes.$inferSelect;
 
 const glebeFormSchema = z.object({
   name: z
     .string()
     .min(1, "Nome da gleba é obrigatório")
     .max(255, "Nome deve ter no máximo 255 caracteres"),
+  shortCode: z.string().max(10, "Código deve ter no máximo 10 caracteres").optional().nullable(),
   area: z
     .string()
     .min(1, "Área é obrigatória")
@@ -44,18 +48,21 @@ type GlebeFormValues = z.infer<typeof glebeFormSchema>;
 interface GlebeFormProps {
   propertyId: number;
   onSuccess: () => void;
+  initialData?: Glebe | null;
 }
 
-export function GlebeForm({ propertyId, onSuccess }: GlebeFormProps) {
+export function GlebeForm({ propertyId, onSuccess, initialData }: GlebeFormProps) {
   const [open, setOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isEditing = !!initialData;
 
   const form = useForm<GlebeFormValues>({
     resolver: zodResolver(glebeFormSchema),
     defaultValues: {
-      name: "",
-      area: "",
-      description: "",
+      name: initialData?.name || "",
+      shortCode: initialData?.shortCode || "",
+      area: initialData?.area ? String(initialData.area) : "",
+      description: initialData?.description || "",
     },
   });
 
@@ -63,13 +70,15 @@ export function GlebeForm({ propertyId, onSuccess }: GlebeFormProps) {
     setIsSubmitting(true);
 
     try {
-      const result = await createGlebe({
-        ...values,
-        propertyId,
-      });
+      const result = isEditing
+        ? await updateGlebe(initialData.id, values)
+        : await createGlebe({
+            ...values,
+            propertyId,
+          });
 
       if (result.success) {
-        toast.success("Gleba criada com sucesso!");
+        toast.success(isEditing ? "Gleba atualizada com sucesso!" : "Gleba criada com sucesso!");
         form.reset();
         setOpen(false);
         onSuccess();
@@ -77,25 +86,41 @@ export function GlebeForm({ propertyId, onSuccess }: GlebeFormProps) {
         toast.error(result.error);
       }
     } catch {
-      toast.error("Erro inesperado ao criar gleba");
+      toast.error("Erro inesperado ao salvar gleba");
     } finally {
       setIsSubmitting(false);
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger onClick={() => setOpen(true)}>
-        <div className="inline-flex shrink-0 cursor-pointer items-center justify-center rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700">
-          <Plus className="mr-2 size-4" />
-          Nova Gleba
-        </div>
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={(val) => {
+      setOpen(val);
+      if (val && initialData) {
+        form.reset({
+          name: initialData.name,
+          shortCode: initialData.shortCode || "",
+          area: String(initialData.area),
+          description: initialData.description || "",
+        });
+      }
+    }}>
+      {!isEditing && (
+        <DialogTrigger onClick={() => setOpen(true)}>
+          <div className="inline-flex shrink-0 cursor-pointer items-center justify-center rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700">
+            <Plus className="mr-2 size-4" />
+            Nova Gleba
+          </div>
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-green-900">Nova Gleba</DialogTitle>
+          <DialogTitle className="text-green-900">
+            {isEditing ? "Editar Gleba" : "Nova Gleba"}
+          </DialogTitle>
           <DialogDescription>
-            Cadastre uma nova gleba vinculada a esta propriedade.
+            {isEditing
+              ? "Edite os dados da gleba. O código curto e a área podem ser alterados."
+              : "Cadastre uma nova gleba vinculada a esta propriedade."}
           </DialogDescription>
         </DialogHeader>
 
@@ -109,6 +134,20 @@ export function GlebeForm({ propertyId, onSuccess }: GlebeFormProps) {
                   <FormLabel>Nome da Gleba</FormLabel>
                   <FormControl>
                     <Input placeholder="Ex: Gleba Norte" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="shortCode"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Código Curto (opcional)</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Ex: G1" {...field} value={field.value || ""} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -163,7 +202,7 @@ export function GlebeForm({ propertyId, onSuccess }: GlebeFormProps) {
                     Salvando...
                   </>
                 ) : (
-                  "Salvar"
+                  isEditing ? "Atualizar" : "Salvar"
                 )}
               </Button>
             </DialogFooter>

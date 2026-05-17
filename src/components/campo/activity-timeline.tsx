@@ -35,6 +35,7 @@ interface Activity {
   quantity: string | null;
   notes: string | null;
   bedName: string | null;
+  bedShortCode: string | null;
   itemName: string | null;
   batchName: string | null;
 }
@@ -170,7 +171,7 @@ export function ActivityTimeline({ activities }: ActivityTimelineProps) {
                 {activity.bedName && (
                   <span className="flex items-center gap-1">
                     <MapPin className="size-3" />
-                    {activity.bedName}
+                    {activity.bedShortCode ? `[${activity.bedShortCode}] ${activity.bedName}` : activity.bedName}
                   </span>
                 )}
                 {activity.itemName && (

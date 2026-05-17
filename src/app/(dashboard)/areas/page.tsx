@@ -106,7 +106,7 @@ export default function AreasPage() {
         <h3 className="mb-4 text-lg font-semibold text-gray-900">
           Glebas ({glebesList.length})
         </h3>
-        <GlebesTable glebesList={glebesList} />
+        <GlebesTable glebesList={glebesList} propertyId={DEFAULT_PROPERTY_ID} onSuccess={loadData} />
       </div>
     </div>
   );

@@ -25,13 +25,17 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Plus, Loader2 } from "lucide-react";
-import { createField } from "@/actions/topology";
+import { createField, updateField } from "@/actions/topology";
+import type { fields } from "@/db/schema";
+
+type Field = typeof fields.$inferSelect;
 
 const fieldFormSchema = z.object({
   name: z
     .string()
     .min(1, "Nome do talhão é obrigatório")
     .max(255, "Nome deve ter no máximo 255 caracteres"),
+  shortCode: z.string().max(10, "Código deve ter no máximo 10 caracteres").optional().nullable(),
   area: z
     .string()
     .min(1, "Área é obrigatória")
@@ -44,18 +48,21 @@ type FieldFormValues = z.infer<typeof fieldFormSchema>;
 interface FieldFormProps {
   glebeId: number;
   onSuccess: () => void;
+  initialData?: Field | null;
 }
 
-export function FieldForm({ glebeId, onSuccess }: FieldFormProps) {
+export function FieldForm({ glebeId, onSuccess, initialData }: FieldFormProps) {
   const [open, setOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isEditing = !!initialData;
 
   const form = useForm<FieldFormValues>({
     resolver: zodResolver(fieldFormSchema),
     defaultValues: {
-      name: "",
-      area: "",
-      description: "",
+      name: initialData?.name || "",
+      shortCode: initialData?.shortCode || "",
+      area: initialData?.area ? String(initialData.area) : "",
+      description: initialData?.description || "",
     },
   });
 
@@ -63,13 +70,15 @@ export function FieldForm({ glebeId, onSuccess }: FieldFormProps) {
     setIsSubmitting(true);
 
     try {
-      const result = await createField({
-        ...values,
-        glebeId,
-      });
+      const result = isEditing
+        ? await updateField(initialData.id, values)
+        : await createField({
+            ...values,
+            glebeId,
+          });
 
       if (result.success) {
-        toast.success("Talhão criado com sucesso!");
+        toast.success(isEditing ? "Talhão atualizado com sucesso!" : "Talhão criado com sucesso!");
         form.reset();
         setOpen(false);
         onSuccess();
@@ -77,25 +86,41 @@ export function FieldForm({ glebeId, onSuccess }: FieldFormProps) {
         toast.error(result.error);
       }
     } catch {
-      toast.error("Erro inesperado ao criar talhão");
+      toast.error("Erro inesperado ao salvar talhão");
     } finally {
       setIsSubmitting(false);
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger onClick={() => setOpen(true)}>
-        <div className="inline-flex shrink-0 cursor-pointer items-center justify-center rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700">
-          <Plus className="mr-2 size-4" />
-          Novo Talhão
-        </div>
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={(val) => {
+      setOpen(val);
+      if (val && initialData) {
+        form.reset({
+          name: initialData.name,
+          shortCode: initialData.shortCode || "",
+          area: String(initialData.area),
+          description: initialData.description || "",
+        });
+      }
+    }}>
+      {!isEditing && (
+        <DialogTrigger onClick={() => setOpen(true)}>
+          <div className="inline-flex shrink-0 cursor-pointer items-center justify-center rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700">
+            <Plus className="mr-2 size-4" />
+            Novo Talhão
+          </div>
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-green-900">Novo Talhão</DialogTitle>
+          <DialogTitle className="text-green-900">
+            {isEditing ? "Editar Talhão" : "Novo Talhão"}
+          </DialogTitle>
           <DialogDescription>
-            Cadastre um novo talhão vinculado a esta gleba.
+            {isEditing
+              ? "Edite os dados do talhão. O código curto e a área podem ser alterados."
+              : "Cadastre um novo talhão vinculado a esta gleba."}
           </DialogDescription>
         </DialogHeader>
 
@@ -109,6 +134,20 @@ export function FieldForm({ glebeId, onSuccess }: FieldFormProps) {
                   <FormLabel>Nome do Talhão</FormLabel>
                   <FormControl>
                     <Input placeholder="Ex: Talhão A" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="shortCode"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Código Curto (opcional)</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Ex: T2" {...field} value={field.value || ""} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -163,7 +202,7 @@ export function FieldForm({ glebeId, onSuccess }: FieldFormProps) {
                     Salvando...
                   </>
                 ) : (
-                  "Salvar"
+                  isEditing ? "Atualizar" : "Salvar"
                 )}
               </Button>
             </DialogFooter>
