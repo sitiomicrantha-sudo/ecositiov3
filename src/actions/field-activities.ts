@@ -8,6 +8,7 @@ import {
   inventoryItems,
   beds,
   poultryBatches,
+  harvestBatches,
 } from "@/db/schema";
 import { eq, desc, isNull, or, and } from "drizzle-orm";
 import { z } from "zod";
@@ -108,6 +109,54 @@ export async function registerFieldActivity(
           ? `Registro automático via Caderno de Campo: ${validated.notes}`
           : "Registro automático via Caderno de Campo",
       });
+    }
+
+    // Se for colheita vegetal com canteiro, gera lote de rastreabilidade
+    if (validated.activityType === "colheita" && validated.bedId) {
+      const bed = await db.query.beds.findFirst({
+        where: eq(beds.id, validated.bedId),
+      });
+
+      if (bed) {
+        const item = validated.itemId
+          ? await db.query.inventoryItems.findFirst({ where: eq(inventoryItems.id, validated.itemId) })
+          : null;
+
+        const year = activityDate.getFullYear() % 100;
+        const month = String(activityDate.getMonth() + 1).padStart(2, "0");
+        const day = String(activityDate.getDate()).padStart(2, "0");
+        const dateStr = `${year}${month}${day}`;
+        const shortCode = bed.shortCode || `C${bed.id}`;
+        const baseCode = `SM-${dateStr}-${shortCode}`;
+
+        let loteCode = baseCode;
+        let suffix = 2;
+        let exists = true;
+        while (exists) {
+          const existing = await db.query.harvestBatches.findFirst({
+            where: eq(harvestBatches.loteCode, loteCode),
+          });
+          if (!existing) {
+            exists = false;
+          } else {
+            loteCode = `${baseCode}-${suffix}`;
+            suffix++;
+          }
+        }
+
+        const quantityStr = validated.quantity
+          ? `${validated.quantity} ${item?.unit || ""}`.trim()
+          : null;
+
+        await db.insert(harvestBatches).values({
+          loteCode,
+          bedId: validated.bedId,
+          plantingId: null,
+          quantity: quantityStr,
+          harvestedAt: activityDate,
+          notes: validated.notes || null,
+        });
+      }
     }
 
     // Se for alimentacao_racao, cria transação de saída (baixa de estoque real)
@@ -423,5 +472,98 @@ export async function getItemStock(itemId: number): Promise<
     };
   } catch {
     return { success: false, error: "Erro ao calcular estoque" };
+  }
+}
+
+export async function getHarvestBatches(): Promise<
+  ActionResult<
+    (typeof harvestBatches.$inferSelect & {
+      bedName: string | null;
+      bedShortCode: string | null;
+      fieldName: string | null;
+      glebeName: string | null;
+      itemName: string | null;
+    })[]
+  >
+> {
+  try {
+    const batches = await db.query.harvestBatches.findMany({
+      with: {
+        bed: {
+          with: {
+            field: {
+              with: {
+                glebe: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: [desc(harvestBatches.harvestedAt)],
+    });
+
+    const enriched = batches.map((b) => {
+      const planting = (b as any).planting;
+      return {
+        ...b,
+        bedName: b.bed?.name || null,
+        bedShortCode: b.bed?.shortCode || null,
+        fieldName: b.bed?.field?.name || null,
+        glebeName: b.bed?.field?.glebe?.name || null,
+        itemName: planting?.item?.name || null,
+      };
+    });
+
+    return { success: true, data: enriched };
+  } catch {
+    return { success: false, error: "Erro ao buscar lotes de colheita" };
+  }
+}
+
+export async function getHarvestBatchByToken(
+  token: string
+): Promise<
+  ActionResult<
+    typeof harvestBatches.$inferSelect & {
+      bedName: string | null;
+      bedShortCode: string | null;
+      fieldName: string | null;
+      glebeName: string | null;
+      itemName: string | null;
+    }
+  >
+> {
+  try {
+    const batch = await db.query.harvestBatches.findFirst({
+      where: eq(harvestBatches.publicToken, token),
+      with: {
+        bed: {
+          with: {
+            field: {
+              with: {
+                glebe: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!batch) {
+      return { success: false, error: "Lote não encontrado" };
+    }
+
+    const enriched = {
+      ...batch,
+      bedName: batch.bed?.name || null,
+      bedShortCode: batch.bed?.shortCode || null,
+      fieldName: batch.bed?.field?.name || null,
+      glebeName: batch.bed?.field?.glebe?.name || null,
+      itemName: null,
+    };
+
+    return { success: true, data: enriched };
+  } catch {
+    return { success: false, error: "Erro ao buscar lote" };
   }
 }

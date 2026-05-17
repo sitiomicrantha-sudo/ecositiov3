@@ -29,6 +29,8 @@ import {
   Leaf,
   Wallet,
   ShoppingCart,
+  ScrollText,
+  Package,
 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 
@@ -53,7 +55,11 @@ export function DashboardSidebar({ modules }: DashboardSidebarProps) {
   const operationsItems = [
     { title: "Topologia / Áreas", href: "/areas", icon: Map },
     ...(vegetalActive
-      ? [{ title: "Caderno de Campo", href: "/campo", icon: Sprout }]
+      ? [
+          { title: "Caderno de Campo", href: "/campo", icon: Sprout },
+          { title: "Histórico do Solo", href: "/campo/historico", icon: ScrollText },
+          { title: "Lotes de Colheita", href: "/campo/lotes", icon: Package },
+        ]
       : []),
     ...(aviculturaActive
       ? [{ title: "Avicultura", href: "/avicultura", icon: Bird }]

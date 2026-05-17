@@ -15,6 +15,13 @@
       "when": 1779036504891,
       "tag": "0001_fixed_arclight",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1779039168157,
+      "tag": "0002_jazzy_dragon_man",
+      "breakpoints": true
     }
   ]
 }

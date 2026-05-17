@@ -9,6 +9,7 @@ import {
   pgEnum,
   date,
   boolean,
+  uuid,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -261,6 +262,17 @@ export const fieldActivities = pgTable("field_activities", {
   notes: text("notes"),
 });
 
+export const harvestBatches = pgTable("harvest_batches", {
+  id: serial("id").primaryKey(),
+  loteCode: varchar("lote_code", { length: 30 }).notNull().unique(),
+  publicToken: uuid("public_token").defaultRandom().notNull().unique(),
+  bedId: integer("bed_id").notNull().references(() => beds.id, { onDelete: "set null" }),
+  plantingId: integer("planting_id").references(() => plantings.id, { onDelete: "set null" }),
+  quantity: varchar("quantity", { length: 30 }),
+  harvestedAt: timestamp("harvested_at").defaultNow().notNull(),
+  notes: text("notes"),
+});
+
 // ============================================================
 // MÓDULO 5: AVICULTURA & GESTÃO GENÉTICA
 // ============================================================
@@ -391,6 +403,7 @@ export const bedsRelations = relations(beds, ({ one, many }) => ({
   }),
   plantings: many(plantings),
   fieldActivities: many(fieldActivities),
+  harvestBatches: many(harvestBatches),
 }));
 
 export const inventoryItemsRelations = relations(
@@ -512,4 +525,15 @@ export const financialTransactionsRelations = relations(
 export const costCentersRelations = relations(costCenters, ({ many }) => ({
   inventoryItems: many(inventoryItems),
   financialTransactions: many(financialTransactions),
+}));
+
+export const harvestBatchesRelations = relations(harvestBatches, ({ one }) => ({
+  bed: one(beds, {
+    fields: [harvestBatches.bedId],
+    references: [beds.id],
+  }),
+  planting: one(plantings, {
+    fields: [harvestBatches.plantingId],
+    references: [plantings.id],
+  }),
 }));
